@@ -1,0 +1,335 @@
+---
+title: "ANLY511"
+author: "Anderson Monken"
+date: "12/5/2019"
+output: pdf_document
+classoption: landscape
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+library(readr)
+library(formatR)
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(stringr)
+library(ggplot2)
+#library(expm)
+library(xtable)
+library(broom)
+library(stargazer)
+library(xgboost)
+library(e1071)
+library(caTools)
+library(nycflights13)
+options(xtable.comment = FALSE)
+opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE)
+knitr::opts_chunk$set(fig.width=3.8, fig.height=3) 
+opts_knit$set(root.dir = '/home/anderson/Dropbox/Georgetown/ANLY511/Project')
+```
+
+## Data loading
+
+```{r}
+airlines <- nycflights13::airlines
+airports <- nycflights13::airports
+flights <- nycflights13::flights %>% mutate(arr_delay = if_else(is.na(arr_delay),300,arr_delay),dep_delay = if_else(is.na(dep_delay),300,dep_delay)) #%>% filter(!is.na(arr_delay),!is.na(dep_delay))
+planes <- nycflights13::planes
+weather <- nycflights13::weather
+
+```
+
+
+```{r}
+head(flights)
+```
+
+
+```{r}
+flight_airlines <- flights %>% group_by(carrier) %>% left_join(airlines)
+
+summary_flight_airlines <- flight_airlines %>% group_by(carrier,name) %>% tally()
+  
+plot <- ggplot(summary_flight_airlines, aes(carrier, weight = n, fill = carrier)) +
+geom_bar() + theme(legend.title = element_blank(), legend.position = "none") + ggtitle("Counts of Flights by Carrier") + scale_y_continuous(expand = c(0,0), limits = c(0,60000)) + geom_text(aes(y = n, label=n),vjust=0)
+ggsave('count_plot.png', plot, width = 5, height = 4)
+```
+
+
+
+```{r}
+
+
+ggplot(data = flight_airlines, aes(x = carrier, y = arr_delay)) + geom_boxplot(outlier.shape = NA) + ggtitle("Boxplot of Departure Delays by Airline Carrier") + #geom_jitter(width = 0.25, size = 0.6, color = 'blue') + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+plot <- ggplot(flight_airlines, aes(x=dep_delay, fill = carrier, color = carrier)) + 
+  geom_density(alpha = 0.15) + xlim(-60,350) + guides(col=guide_legend(ncol=3), fill=guide_legend(ncol=3)) + ggtitle("Density Plot of Departure Delays by Carrier")
+
+ggsave('dep_density_plot.png', plot, width = 6, height =4.5)
+
+plot <- ggplot(flight_airlines, aes(x=arr_delay, fill = carrier, color = carrier)) + 
+  geom_density(alpha = 0.15) + xlim(-60,350) + guides(col=guide_legend(ncol=3), fill=guide_legend(ncol=3)) + ggtitle("Density Plot of Arrival Delays by Carrier")
+
+ggsave('arr_density_plot.png', plot, width = 6, height =4.5)
+
+#  ggtitle(paste0("Distribution of \nsample mean w/"," n=",n,", mean= 0, sd=",a)) + xlab('E(X1+X2+...Xn)') + 
+#  scale_y_continuous(expand = c(0,0))
+#plot + geom_label(data = data.frame(x = 0.511, y = 50, label = #paste('mean:',round(mean(dfq62$unif_sim),4),'\nsd:',round(sd(dfq62$unif_sim),4))), aes(x = x, y = y, label = label))
+
+```
+
+```{r}
+flight_airlines_trim <- flight_airlines %>% filter(!carrier %in% c('OO','HA'))
+  
+flight_airlines_trim$bin_dep_delay <- flight_airlines_trim$dep_delay %>% cut(6,breaks = c(-90,0,5,30,60,120, Inf), labels = c("early","ontime","5-30min","30-60min","1-2hr",">2hr"), include.lowest = TRUE)
+flight_airlines_trim$bin_arr_delay <- flight_airlines_trim$arr_delay %>% cut(6,breaks = c(-90,0,5,30,60,120, Inf), labels = c("early","ontime","5-30min","30-60min","1-2hr",">2hr"), include.lowest = TRUE)
+
+
+arr_table_flight_airlines <- flight_airlines_trim %>% select(carrier, bin_arr_delay) %>% table()
+dep_table_flight_airlines <- flight_airlines_trim %>% select(carrier, bin_dep_delay) %>% table()
+
+chisq.test(dep_table_flight_airlines)
+chisq.test(arr_table_flight_airlines)
+```
+
+\clearpage
+
+```{r}
+#dep_table_flight_airlines %>% kable()
+```
+
+```{r}
+flight_airline_trim_weather <- flight_airlines_trim %>% left_join(weather) %>% left_join(planes, by = 'tailnum') %>% rename(plane_year = year.y)
+flight_airline_trim_weather$dow <- as.POSIXlt(flight_airline_trim_weather$time_hour)$wday
+
+flight_airline_trim_weather$dep_binary <- FALSE
+flight_airline_trim_weather$dep_binary [flight_airline_trim_weather$dep_delay > 0] <- TRUE
+flight_airline_trim_weather$arr_binary <- FALSE
+flight_airline_trim_weather$arr_binary [flight_airline_trim_weather$arr_delay > 0] <- TRUE
+# Create an indicator for quarter
+flight_airline_trim_weather$quarter <- cut(flight_airline_trim_weather$month, breaks = c(0, 3, 6, 9, 12), 
+                                labels = c("1", "2", "3", "4"))
+
+flight_airline_trim_weather$logT_arr_delay <- log(flight_airline_trim_weather$arr_delay + 1 - min(flight_airline_trim_weather$arr_delay))
+flight_airline_trim_weather$invT_arr_delay <- 1/(1 + 5*flight_airline_trim_weather$arr_delay)
+flight_airline_trim_weather$logT_dep_delay <- log(flight_airline_trim_weather$dep_delay + 1 - min(flight_airline_trim_weather$dep_delay))
+flight_airline_trim_weather$invT_dep_delay <- 1/(1 + 5*flight_airline_trim_weather$dep_delay)
+
+dep_reg_1 <- lm(dep_delay ~ temp + wind_speed + visib + precip, data = flight_airline_trim_weather)
+dep_reg_2 <- lm(dep_delay ~ temp + wind_speed + visib + precip + factor(hour) + factor(dow) + factor(month), data = flight_airline_trim_weather) # airport
+dep_reg_3 <- lm(dep_delay ~ temp + wind_speed + visib + precip + factor(hour) + factor(dow) + factor(month) + origin, data = flight_airline_trim_weather)
+dep_reg_4 <- lm(dep_delay ~ temp + wind_speed + visib + precip + factor(hour) + factor(dow) + factor(month) + origin + factor(carrier), data = flight_airline_trim_weather)
+dep_reg_5 <- lm(dep_delay ~ temp + wind_speed + visib + precip + factor(hour) + factor(dow) + factor(month) +  origin  + factor(dest) + factor(carrier) + distance, data = flight_airline_trim_weather)
+dep_reg_7 <- lm(logT_dep_delay ~ temp + wind_speed + visib + precip + factor(hour) + factor(dow) + factor(month) +  origin  + factor(dest) + factor(carrier) + distance, data = flight_airline_trim_weather)
+dep_reg_6 <- lm(invT_dep_delay ~ temp + wind_speed + visib + precip + factor(hour) + factor(dow) + factor(month) +  origin  + factor(dest) + factor(carrier) + distance, data = flight_airline_trim_weather)
+
+arr_reg_1 <- lm(arr_delay ~ temp + wind_speed + visib + precip, data = flight_airline_trim_weather)
+arr_reg_2 <- lm(arr_delay ~ temp + wind_speed + visib + precip + factor(hour) + factor(dow) + factor(month), data = flight_airline_trim_weather) # airport
+arr_reg_3 <- lm(arr_delay ~ temp + wind_speed + visib + precip + factor(hour) + factor(dow) + factor(month) + origin, data = flight_airline_trim_weather)
+arr_reg_4 <- lm(arr_delay ~ temp + wind_speed + visib + precip + factor(hour) + factor(dow) + factor(month) + origin + factor(carrier), data = flight_airline_trim_weather)
+arr_reg_5 <- lm(arr_delay ~ temp + wind_speed + visib + precip + factor(hour) + factor(dow) + factor(month) + origin  + factor(dest) + factor(carrier) + distance, data = flight_airline_trim_weather)
+arr_reg_7 <- lm(logT_arr_delay ~ temp + wind_speed + visib + precip + factor(hour) + factor(dow) + factor(month) + origin  + factor(dest) + factor(carrier) + distance, data = flight_airline_trim_weather)
+arr_reg_6 <- lm(invT_arr_delay ~ temp + wind_speed + visib + precip + factor(hour) + factor(dow) + factor(month) + origin  + factor(dest) + factor(carrier) + distance, data = flight_airline_trim_weather)
+
+```
+
+
+
+```{r, eval = TRUE}
+
+flight_airline_trim_weather <- flight_airline_trim_weather %>% mutate(hour = as.factor(hour), dow = as.factor(dow)) %>% filter(dest != "LGA")
+
+flight_airline_trim_weather_trim <- flight_airline_trim_weather[complete.cases(flight_airline_trim_weather %>% select(dow,temp,wind_speed,visib,precip,hour,dow,origin,quarter,dest,carrier,distance)),]
+
+set.seed(53)   #  set seed to ensure you always have same random numbers generated
+sample_test = sample(nrow(flight_airline_trim_weather_trim),as.integer(0.80*nrow(flight_airline_trim_weather_trim)), replace = FALSE) # splits the data in the ratio mentioned in SplitRatio. After splitting marks these rows as logical TRUE and the the remaining are marked as logical FALSE
+train1 =flight_airline_trim_weather_trim[sample_test,] # creates a training dataset named train1 with rows which are marked as TRUE
+test1=flight_airline_trim_weather_trim[-sample_test,]
+
+
+dep_myprobit1 <- glm(dep_binary ~ temp + wind_speed + visib + precip , family = binomial(link = "probit"), 
+    data = train1)
+dep_myprobit2 <- glm(dep_binary ~ temp + wind_speed + visib + precip + as.factor(dow) + as.factor(hour) + as.factor(month), family = binomial(link = "probit"), 
+    data = train1)
+dep_myprobit3 <- glm(dep_binary ~ temp + wind_speed + visib + precip + as.factor(dow) + as.factor(hour) + as.factor(month) + origin , family = binomial(link = "probit"), 
+    data = train1)
+dep_myprobit4 <- glm(dep_binary ~ temp + wind_speed + visib + precip + as.factor(dow) + as.factor(hour) + as.factor(month) + origin + as.factor(carrier), family = binomial(link = "probit"), 
+    data = train1)
+dep_myprobit5 <- glm(dep_binary ~ temp + wind_speed + visib + precip + as.factor(dow) + as.factor(hour) + as.factor(month) + as.factor(carrier) + origin + dest + distance, family = binomial(link = "probit"), 
+    data = train1)
+#summary(myprobit)
+
+dep_models <- list(dep_myprobit1,dep_myprobit2,dep_myprobit3,dep_myprobit4,dep_myprobit5)
+prediction <- lapply(dep_models, function(x) predict(x, test1, type="response"))
+
+combo <- list()
+test <- list()
+dep_test_results <- c()
+dep_aic_results <- c()
+for (i in 1:5){
+  prediction[[i]][prediction[[i]] >= 0.5] <- 1
+  prediction[[i]][prediction[[i]] < 0.5] <- 0
+  combo[[i]] <- as.data.frame(cbind(prediction[[i]],test1$dep_binary))
+  colnames(combo[[i]]) <- c('prediction', 'actual')
+  combo[[i]] <- combo[[i]][complete.cases(combo[[i]]),]
+  test[[i]] <- combo[[i]]$prediction == combo[[i]]$actual
+  dep_test_results[[i]] <- mean(test[[i]])
+  dep_aic_results[[i]] <- dep_models[[i]]$aic
+
+}
+
+plot <- ggplot(data.frame(model_num = 1:5,model_accuracy = dep_test_results), aes(x = model_num, y = model_accuracy)) + geom_line() + geom_hline(aes(yintercept = table(flight_airline_trim_weather_trim$dep_binary)[1]/ nrow(flight_airline_trim_weather_trim)), color = 'red') + scale_y_continuous(limits = c(0.55,0.7)) + ggtitle("Model Accuracy from \nProbit Departing Model")
+
+ggsave('dep_probit_accuracy_graph.png', plot, width = 6, height =4.5)
+
+
+
+######
+######
+###### ARRIVALS
+
+arr_myprobit1 <- glm(arr_binary ~ temp + wind_speed + visib + precip , family = binomial(link = "probit"), 
+    data = train1)
+arr_myprobit2 <- glm(arr_binary ~ temp + wind_speed + visib + precip + as.factor(dow) + as.factor(hour) + as.factor(month), family = binomial(link = "probit"), 
+    data = train1)
+arr_myprobit3 <- glm(arr_binary ~ temp + wind_speed + visib + precip + as.factor(dow) + as.factor(hour) + as.factor(month) + origin , family = binomial(link = "probit"), 
+    data = train1)
+arr_myprobit4 <- glm(arr_binary ~ temp + wind_speed + visib + precip + as.factor(dow) + as.factor(hour) + as.factor(month) + origin + as.factor(carrier), family = binomial(link = "probit"), 
+    data = train1)
+arr_myprobit5 <- glm(arr_binary ~ temp + wind_speed + visib + precip + as.factor(dow) + as.factor(hour) + as.factor(month) + as.factor(carrier) + origin + dest + distance, family = binomial(link = "probit"), 
+    data = train1)
+#summary(myprobit)
+
+arr_models <- list(arr_myprobit1,arr_myprobit2,arr_myprobit3,arr_myprobit4,arr_myprobit5)
+prediction <- lapply(arr_models, function(x) predict(x, test1, type="response"))
+
+combo <- list()
+test <- list()
+arr_test_results <- c()
+arr_aic_results <- c()
+for (i in 1:5){
+  prediction[[i]][prediction[[i]] >= 0.5] <- 1
+  prediction[[i]][prediction[[i]] < 0.5] <- 0
+  combo[[i]] <- as.data.frame(cbind(prediction[[i]],test1$arr_binary))
+  colnames(combo[[i]]) <- c('prediction', 'actual')
+  combo[[i]] <- combo[[i]][complete.cases(combo[[i]]),]
+  test[[i]] <- combo[[i]]$prediction == combo[[i]]$actual
+  arr_test_results[[i]] <- mean(test[[i]])
+  arr_aic_results[[i]] <- arr_models[[i]]$aic
+    
+}
+
+plot <- ggplot(data.frame(model_num = 1:5,model_accuracy = arr_test_results), aes(x = model_num, y = model_accuracy)) + geom_line() + geom_hline(aes(yintercept = table(flight_airline_trim_weather_trim$arr_binary)[1]/ nrow(flight_airline_trim_weather_trim)), color = 'red') + scale_y_continuous(limits = c(0.55,0.70)) + ggtitle("Model Accuracy from \nProbit Arriving Model")
+
+ggsave('arr_probit_accuracy_graph.png', plot, width = 6, height =4.5)
+
+
+aic_table <- rbind(arr_aic_results,dep_aic_results)
+rownames(aic_table) <- c("Arriving Model","Departing Model")
+colnames(aic_table) <- c("Model 1","Model 2","Model 3","Model 4","Model 5")
+aic_table %>% kable(caption = "AIC for Probit Models")
+```
+
+```{r, eval = FALSE}
+
+xgboost_data <- flight_airline_trim_weather_trim %>% select(dep_binary,dow,temp,wind_speed,visib,precip,hour,dow,origin,quarter,dest,carrier,distance) %>% ungroup() %>% mutate(carrier = as.factor(carrier), origin = as.factor(origin), hour = as.integer(hour), dest = as.factor(dest), dep_binary = as.integer(dep_binary)) %>% as.data.table()
+
+prepped_xgboost_data <- one_hot(xgboost_data)
+
+set.seed(100)  # For reproducibility
+# Create index for testing and training data
+inTrain <- createDataPartition(y = prepped_xgboost_data$dep_binary, p = 0.8, list = FALSE)
+# subset power_plant data to training
+training <- prepped_xgboost_data[inTrain,]
+# subset the rest to test
+ testing <- prepped_xgboost_data[-inTrain,]
+
+train_data = xgb.DMatrix(as.matrix(training %>% select(-dep_binary)), label = as.factor(training$dep_binary))
+test_data = xgb.DMatrix(as.matrix(testing %>% select(-dep_binary)), label = as.factor(testing$dep_binary))
+wl <- list(train = train_data, test = test_data)
+xgb_trcontrol = trainControl(
+  method = "cv",
+  number = 4,  
+  allowParallel = TRUE,
+  verboseIter = FALSE,
+  returnData = FALSE
+)
+
+xgbGrid <- expand.grid(
+  #nrounds = c(100,200),  # this is n_estimators in the python code above
+   #                    max_depth = c(10, 15, 20, 25),
+    #                   colsample_bytree = seq(0.5, 0.9, length.out = 5),
+                       ## The values below are default values in the sklearn-api. 
+                       eta = 0.6
+                      )
+
+params = list(
+  eta=0.6,
+  max_depth=5,
+  gamma=3,
+  subsample=0.75,
+  colsample_bytree=1,
+  objective = "binary:logistic",
+  eval_metric="mlogloss",
+  verbose=1
+)
+
+set.seed(0) 
+xgb_model = train(
+  X_train, y_train,  
+  #trControl = xgb_trcontrol,
+  #tuneGrid = xgbGrid,
+  method = "xgbTree",nrounds = 10,nthread=23,etc=0.6,max_depth = 10
+)
+
+param <- list(objective = 'binary:logistic', eval_metric = 'auc', subsample = 0.5, nthread = 4,
+              max_bin = 64, tree_method = 'gpu_hist')
+pt <- proc.time()
+bst_gpu <- xgb.train(param, train_data, watchlist = wl, nrounds = 50)
+proc.time() - pt
+
+xgb_train$bestTune
+
+predicted = predict(xgb_model, X_test)
+residuals = y_test - predicted
+RMSE = sqrt(mean(residuals^2))
+cat('The root mean square error of the test data is ', round(RMSE,3),'\n')
+
+
+y_test_mean = mean(y_test)
+# Calculate total sum of squares
+tss =  sum((y_test - y_test_mean)^2 )
+# Calculate residual sum of squares
+rss =  sum(residuals^2)
+# Calculate R-squared
+rsq  =  1 - (rss/tss)
+cat('The R-square of the test data is ', round(rsq,3), '\n')
+
+```
+
+
+```{r, results = 'asis'}
+
+stargazer(dep_reg_1, dep_reg_2, dep_reg_3, dep_reg_4, dep_reg_5, dep_reg_6, dep_reg_7, type = 'latex', no.space = TRUE, omit.stat=c("f", "ser"),
+          omit = c("dow","hour","month","dest","carrier"),
+             add.lines = list(
+        c("Time FE?", "No", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes"),
+        c("Airline FE?", "No", "No", "No", "Yes", "Yes", "Yes", "Yes"),
+        c("Destination FE?", "No", "No", "No", "No", "Yes", "Yes", "Yes")
+        
+    )
+          )
+
+```
+
+```{r, results = 'asis'}
+stargazer(arr_reg_1, arr_reg_2, arr_reg_3, arr_reg_4, arr_reg_5, arr_reg_6, arr_reg_7, type = 'latex', no.space = TRUE, omit.stat=c("f", "ser"),
+          omit = c("dow","hour","month","dest","carrier"),
+             add.lines = list(
+        c("Time FE?", "No", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes"),
+        c("Airline FE?", "No", "No", "No", "Yes", "Yes", "Yes", "Yes"),
+        c("Destination FE?", "No", "No", "No", "No", "Yes", "Yes", "Yes")
+
+))
+```
