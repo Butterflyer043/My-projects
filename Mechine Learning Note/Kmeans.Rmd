@@ -1,0 +1,143 @@
+---
+title: "K-Means Clustering in R"
+author: "xl"
+date: "3/28/2020"
+output: html_document
+---
+# K-means Clustering in Python
+
+### Generate a dataset
+```{r}
+set.seed(505)
+f1 =c(runif(150,-20,30),runif(150,15,65),runif(150,50,100),runif(200,-20,100))
+f2 =c(runif(150,-10,30),runif(150,40,80),runif(150,-30,10),runif(200,-35,100))
+df=data.frame('x'=f1,'y'=f2)
+# plotting
+plot(f1, f2,cex=0.5,pch=19,main="orginal", col='darkgrey')
+```
+
+### Choose Number of clusters: K
+```{r}
+# Number of clusters
+k = 3
+# setup color for plotting
+colors = RColorBrewer::brewer.pal(n = k, name = 'Paired')
+```
+
+### Random select K points as Intial Centroids
+```{r}
+# intial X coordinates of random centroids
+index_centriods =  sample(1:nrow(df),k)
+intial_Centroids = df[index_centriods,]
+
+# Plotting along with the Centroids
+plot(f1, f2, col='darkgrey',cex=0.5,pch=19,ylab='y',xlab='x',main="Intial Centroids ")
+points(x=intial_Centroids$x, y=intial_Centroids$y,cex=1.5,pch=23,col='red')
+```
+
+### Creat function for assigning the points to K clusters
+```{r}
+# assign the points to 3 clusters
+assignment=function(df, centroids,k,iter,colors){
+   # creating new cols for computing euclidean distance to the centroids point
+    for (i in 1:k){
+        # euclidean distance = sqrt((x1 - x2)^2 - (y1 - y2)^2)
+        df[paste('Distance_from_',toString(i),sep='')] = 
+            sqrt((df$x- centroids[i,1]) ** 2+
+                   (df$y - centroids[i,2]) ** 2)}
+
+    # creating a new col for shows the closest centroids
+    df['closest'] = apply(df[2+1:k],1,FUN=function(x) which(x==min(x))[1])
+    # creating a new col for shows the color
+    df['color']  = apply(df['closest'],1,FUN = function(x) colors[x])
+    plot(df$x,df$y,col=df$color,cex=0.5,pch=19,ylab='y',xlab='x',main=paste('Clustering:',iter))
+    points(x=centroids$x, y=centroids$y,cex=1.5,pch=23,col='red')
+    return (df)
+  }    
+```
+1. Compute the distance between the points and each centroids (Distance_from_i)
+2. Identify the closet centroids of each point (closest)
+3. Split the points to K clusters
+
+```{r}
+Centroids = intial_Centroids
+df= assignment(df,Centroids,k,1,colors)
+head(df)
+# ploting first cluster result
+```
+
+
+### Creat function for updating the centroids
+The new centroids are the means of each cluster
+```{r}
+# function for update centroids
+update= function(centroids,k,df){
+    for (i in 1:k){
+        centroids[i,1] = mean(df[df$closest==i,]$x)
+        centroids[i,2] = mean(df[df$closest==i,]$y)}
+    plot(df$x,df$y,col=df$color,cex=0.5,pch=19,ylab='y',xlab='x',main="New centroids ")
+    points(x=centroids$x, y=centroids$y,cex=1.5,pch=23,col='red')
+    return (centroids)}
+Centroids = update(Centroids,k,df)
+```
+### Cluster the data with new centroids
+```{r}
+
+# run the second clustering 
+df= assignment(df,Centroids,k,2,colors)
+# updat the centroids again 
+Centroids = update(Centroids,k,df)
+
+
+# run the third clustering 
+df= assignment(df,Centroids,k,3,colors)
+# updat the centroids again
+Centroids = update(Centroids,k,df)
+
+# run the fourth clustering 
+df= assignment(df,Centroids,k,4,colors)
+Centroids = update(Centroids,k,df)
+
+# run the fifth clustering 
+df= assignment(df,Centroids,k,5,colors)
+Centroids = update(Centroids,k,df)
+
+```
+Now we get 3 clear clusters
+
+### Create a function for the whole K-means process.
+```{r fig.height=4, fig.width=6}
+# df = dataset 
+# iteration = nunmber of iteration 
+# k =number of cluster 
+Kmean_2D= function(df, k,iteration){
+  # plot the Orginal dataset
+  plot(df$x, df$y,cex=0.5,pch=19,main="Orginal df")
+  # setup color
+  colors = RColorBrewer::brewer.pal(n = k, name = 'Paired')
+  # initial X coordinates of random centroids
+  index_centriods =  sample(1:nrow(df),k)
+  intial_Centroids = df[index_centriods,]
+  # ploting the initial centroids
+  plot(df$x, df$y,cex=0.5,pch=19,main="Orginal df")
+  points(x=intial_Centroids$x, y=intial_Centroids$y,cex=1.5,pch=23,col='red')
+  
+  Centroids = intial_Centroids
+  for (iter in 1:iteration){
+    df= assignment(df,Centroids,k,iter,colors)
+    if (iter!=iteration){
+    Centroids = update(Centroids,k,df)}
+    }
+}
+
+```
+
+### Try on a new dataset
+```{r}
+set.seed(505)
+f1 =c(runif(150,-20,30),runif(150,15,65),runif(150,50,100),runif(150,80,120),runif(200,-20,100))
+f2 =c(runif(150,-10,30),runif(150,40,80),runif(150,-30,10),runif(150,30,80),runif(200,-35,100))
+df=data.frame('x'=f1,'y'=f2)
+Kmean_2D(df,k=4,6)
+```
+
