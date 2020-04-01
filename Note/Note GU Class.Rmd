@@ -1,0 +1,296 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+###############
+##rep(),sep()##
+###############
+
+```{r}
+#1. replicate() 
+  #它可以将某个函数重复运行N次，常常用来生成较复杂的随机数。下面的例子即先建立一个函数，模拟扔两个骰子   的点数之和，然后重复运行10000次。
+test = function(){
+  v=runif(1)  #随机生成一个0到1之间的数字
+  v=v+1 
+  return(v)}
+replicate (4, test())
+#2. rep() 
+  #复制()中的值
+rep(2,10)
+rep(1:4,2)
+rep(1:4,each=2)
+rep(1:4, c(2,3,2,3))
+rep(1:4,each=2,time=3)
+rep(1:4,each=2,len=10)
+#3. seq() 
+  #生成规律的序列
+  #seq(from = 1, to = 1, by = ((to - from)/(length.out - 1)), length.out = NULL, …) 
+  #from, to 开始和结束(最大)价值序列 ,by 数字:增量序列  ,length.out 所需的序列的长度， 
+  # by 和 length 不能同时使用
+seq(1,14,by=2)
+seq(1,10,length=5)
+```
+
+
+################
+## Data Frame ##
+################
+```{r}  
+################
+### 1. create a  data frame
+df <- data.frame(name=c("John","Sally","Fred"),gender=c('M','F','M'),age=c(23,45,67))
+df
+df_name <- df[df$name] # create a new data frame
+class( df_name)
+df_age <- df$age # create a new list with the type of each variable
+class(df_age)
+### 2. access elements in dataframe
+df[c(1,2),c(2,3)] #access row 1&2, col 2&3
+df[2,2]  #access row 2, col 2
+df$age [1]  #access an element in a col
+### 3. names
+names(df) 
+colnames(df)
+rownames(df) #默认123
+#name the rows
+rownames(df) <- c('one','two','three')  #更改默认排的名字
+rownames(df)
+df
+### 4. add rows or columns dataframes
+df$height <- c(67,69,60) # add column 'height'
+df
+#rbind: bine by rows
+df_1 <- data.frame(name=c("Harry","Alana"),gender=c('M','F'),age=c(45,16),height=c(67,61))
+rownames(df_1) <- c('four','five')
+df_bigger <- rbind(df,df_1) # add new rows 
+df_bigger
+#cbind: bine by col
+df_2 <- data.frame(weight=c(126,123,98,107,111),rank=c(1,2,2,1,1))
+df_bigger <- cbind(df_bigger,df_2) #add column 'row'
+df_bigger
+#merge: merge two dataframes BY=
+df_bigger$ID <- c(11,22,33,44,55) # add col
+df_3 <- data.frame(ID=c(11,22,33,44,55), grade=c(90,78,99,71,94))
+df_bigger<- merge(df_bigger,df_3,by='ID') #add column 'grade'
+df_bigger
+### 5. remove rows or columns dataframes
+df_smaller <- df_bigger
+df_smaller$weight <-  NULL # remove column'weight'
+df_smaller
+#subset: remove col
+df_smaller <- subset(df_smaller,select = -grade)
+df_smaller
+#remove rows
+df_smaller <- df_smaller[df_smaller$age>25,] #注意逗号！
+df_smaller
+### 6. binning dataframes
+sel_col <- c(2,4:5)
+df <- df_bigger[sel_col] # 精简数据，选取有用列
+df
+#ifelset(条件,是则：,否则：)
+df$tall <- ifelse(df$height>65,'T','F')
+df
+#cut(data,break=c()数据分段点,label=c()) 若标签为n个，分段点需要n+1个
+#break = (-Inf,12,20,46,Inf)  为 （小于等于11，12-20，21-46，大于等于47）
+df$agebin <- cut(df$age,breaks=c(-Inf,20,40,60,Inf),labels=c("child","young","middle","old"))
+df
+### 7. sorting dataframe
+df <- df[order(df$age),] #注意逗号！
+df
+### 8. dealing with missing or NA
+df_4 <- data.frame(name=c('','Alana','Joe'),gender=c('M','F','M'),age=c(45,16,34))
+df_4
+complete.cases(df_4) #如果导入的空白值为'', 则需要把'' 换成NA 在进行剔除
+df_4$name <- replace(df_4$name,df_4$name=='',NA)
+df_4
+df_4 <- df_4[complete.cases(df_4),] #注意逗号！
+df_4
+
+
+# missing 
+df$arr_delay[is.na(df$dep_delay)] <-  -100
+
+### compare 
+library(compare)
+a1 <- data.frame(a = 1:5, b = letters[1:5])
+a2 <- data.frame(a = 1:3, b = letters[1:3])
+comparison <- compare(a1,a2,allowAll=TRUE)
+comparison$tM
+```
+
+
+###################
+## apply() family##
+###################
+```{r}
+###apply（x,margin,fun）#####
+APdf=data.frame(x=c(1,2,3,4,5), y=c(10,20,30,40,50), z=c(100,200,300,400,500))
+APdf
+#apply(data,边:row=1按行计算/col=2/c(1,2),FUN需要应用的function)
+###当函数只有一个值，(函数输入方式有三种，均可行)
+apply(APdf, 1, function(x) sum(x)) # 求所有行之和
+rowSums(APdf) # 同上
+APfun_1 <- function(x){x^2}
+apply(APdf[c(1,4),], 1, FUN=APfun_1) #求1、4俩行每行每个数的平方
+apply(APdf[c(1,4),], 2, FUN=APfun_1) #求1、4俩行所有列每个数的平方
+apply(APdf[c(1,4),], 1, FUN=sum) # 求1、4俩行每行之和 
+apply(APdf[c(1,4),], 2, FUN=sum) # 求1、4俩行每列之和 
+APdf
+apply(APdf, 2, sum) # 求所有列之和
+apply(APdf[,c('x','z')], 1, APfun_1)# 求xz俩列每行所有数的平方
+apply(APdf[,c('x','z')], 2, APfun_1) # 求xz俩列每列所有数的平方
+apply(APdf[,c('x','z')], 1, sum)# 求xz俩列每行之和
+apply(APdf[,c('x','z')], 2, sum)# 求xz俩列每列之和
+
+###当函数中含有俩个值
+APdf
+APfun_2 <- function(a,b){a*b} 
+apply(APdf, 1,function(x) APfun_2(x[1],x[3])) #每行第一个数*第三个数
+apply(APdf, 2,function(x) APfun_2(x[1],x[3])) #每行第一个数*第三个数
+apply(APdf[c(1,4),], 1, function(x) APfun_2(x[1],x[3])) #1、4两行每行第一个数*第三个数
+apply(APdf[c(1,4),], 2, function(x) APfun_2(x[1],x[3])) #1、4两行每列第一个数*第三个数
+apply(APdf[,c('x','z')], 1, function(x) APfun_2(x[1],x[2]))# 求xz俩列每行第一个数*第二个
+apply(APdf[,c('x','z')], 2, function(x) APfun_2(x[1],x[2]))# 求xz俩列每列第一个数*第二个
+
+###Error
+APdf 
+#1.dim(x) must have a positive length 
+#dim(x) 查看维度 --> 排 列，eg,dim(APdf)-->5 3,  dim(df)-->5 5,  dim(df_bigger)-->5 8
+#dim(df[,2])-->NULL,  dim(df[2,])-->5 1,  dim(df[2])-->5 1, dim(df[,2:3])-->5 2, 
+apply(df[,2],2,sum) # ERROR 因为df[,2] 是 a dimensionless vector 则应改为
+apply(df[,2:3],2,sum) #使用俩列改变dim
+apply(df[drop=F,2],2,sum) #增加一列 或者用lappy() 详见下
+#2.'type'(character)参数不对
+apply(df[,1:2],2,sum) # ERROR 因为 df[,1] 是姓名，type 为char，则应改用sapply() 详见下
+
+
+##### lapply (list, fun, ...) ##### 
+#lapply 以每个variable为单位计算，输出为list
+is.list(APdf)
+APdf
+lapply(APdf, function(x) sum(x)) #求每个variable的和
+lapply(APdf[2,], function(x) sum(x)) #求第二排中每col的和 
+lapply(APdf[1:3,], function(x) sum(x)) #求第1-3排中每col的和 
+lapply(APdf[,2], function(x) sum(x)) #当input list变成向量时，输出为list，不计算结果
+lapply(APdf[drop=F,2], function(x) sum(x)) #求第2列中每col的和 
+lapply(APdf[,2:3], function(x) sum(x)) #求第2-3列中每col的和 
+
+##### sapply (list, fun, ...，simplify) #####
+#simplify=T（默认值）：返回值的类型由计算结果定，如果函数返回值长度为1，则sapply将list简化为vector；
+#simplify=F：返回值的类型是list，此时与lapply完全相同
+sapply(APdf, function(x) sum(x)) # 输出为vector
+lapply(APdf[1:3,], function(x) sum(x)) #求第1-3排中每col的和 
+sapply(APdf[,2], function(x) sum(x)) #当input list变成向量时，输出为vector，不计算结果
+sapply(APdf[drop=F,2], function(x) sum(x))  # 输出为vector
+
+sapply(df,function(x) ifelse(is.numeric(x),sum(x),NA))
+
+##### mapply/tapply ####
+#https://blog.csdn.net/u014543416/article/details/79037389
+
+
+
+
+```
+
+##############
+## ggplot 2###
+##############
+
+
+
+
+
+################ 
+## simulation###
+################
+sample(x, size, replace = FALSE, prob = NULL)
+
+组合数：choose(n,k) —— 从n个中选出k个
+
+阶乘：factorial(k) —— k!
+
+排列数：choose(n,k) * factorial(k)
+
+###############
+## aggregate###
+###############
+
+```{r}
+library(ggplot2)
+data("diamonds") 
+#1，单个分组变量
+#按照cut字段分组，函数mean的作用是为每个分组计算prince的平均值
+aggregate(price~cut,diamonds,mean) 
+#2，多个分组变量
+#aggregate()函数能够添加多个分组变量，只需要在formula右侧添加变量，并用加号“+”隔离：
+aggregate(price~cut+color,diamonds,mean)
+#3，多个聚合变量
+#aggregate()函数能够添加多个聚合变量，只需要在formula左侧，使用函数cbind()把两个变量组合起来：
+aggregate(cbind(price,carat)~cut,diamonds,mean)
+
+```
+
+##################
+## distribution ##
+##################
+https://blog.csdn.net/kwame211/article/details/80165769
+dbinom(x, size, prob) #该函数给出每个点的概率密度分布。
+pbinom(x, size, prob) #此函数给出事件的累积概率。 它是表示概率的单个值 --- cdf
+qbinom(p, size, prob) #该函数采用概率值，并给出累积值与概率值匹配的数字。
+rbinom(n, size, prob) #该函数从给定样本产生给定概率的所需数量的随机值
+(pdf shi cdf devtrivate)
+x是数字的向量。
+p是概率向量。
+n是观察的数量。
+size是试验的数量。
+prob是每个试验成功的概率。
+
+```{r}
+
+# Create a sample of 50 numbers which are incremented by 1.
+x <- seq(0,50,by = 1)
+# Create the binomial distribution.
+y <- dbinom(x,50,0.5)
+# Plot the graph for this sample.
+plot(x,y)
+
+```
+
+R语言- GammaDist 分布
+http://www.mathapply.cn/Applys/showpaper/pid/416
+R语言- NegBinomial 分布(中文帮助)
+http://www.mathapply.cn/Applys/showpaper/pid/408
+R语言- Uniform 分布(中文帮助)
+http://www.mathapply.cn/Applys/showpaper/pid/410
+R语言- Exponential 分布(中文帮助)
+http://www.mathapply.cn/Applys/showpaper/pid/414
+dexp(x, rate = 1, log = FALSE)
+pexp(q, rate = 1, lower.tail = TRUE, log.p = FALSE)
+qexp(p, rate = 1, lower.tail = TRUE, log.p = FALSE)
+rexp(n, rate = 1)
+R语言- Hypergeometric 分布(中文帮助)
+http://www.mathapply.cn/Applys/showpaper/pid/419
+dhyper(x, m, n, k, log = FALSE)
+phyper(q, m, n, k, lower.tail = TRUE, log.p = FALSE)
+qhyper(p, m, n, k, lower.tail = TRUE, log.p = FALSE)
+rhyper(nn, m, n, k)
+
+R语言- Beta 分布(中文帮助)
+http://www.mathapply.cn/Applys/showpaper/pid/406
+dbeta(x, shape1, shape2, ncp = 0, log = FALSE)
+pbeta(q, shape1, shape2, ncp = 0, lower.tail = TRUE, log.p = FALSE)
+qbeta(p, shape1, shape2, ncp = 0, lower.tail = TRUE, log.p = FALSE)
+rbeta(n, shape1, shape2, ncp = 0)
+
+
+```{r}
+# add value to vector 
+c = c(2)
+d=c(c,3,4)
+c=c(d,3,4)
+```
+
