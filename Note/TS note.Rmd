@@ -1,0 +1,1513 @@
+---
+title: "TimeSeriseNote"
+output:
+  html_document: 
+    fig_width: 6
+    fig_height: 4
+    keep_md: true
+  pdf_document: default
+---
+
+```{r message=FALSE, warning=FALSE}
+library(astsa)
+library(xts)
+library(forecast)
+```
+
+# What is time series?  
+  - 对未来的影响（investigation of lagged relationship  
+  - 时段性（investigation of cycles  
+  - It is a random sequence recorded in a time ordered fashion  
+  - Application
+    - everywhere when data are observed in a time ordered fashion
+    - Economic: daily stock market quotation / monthly unemployment
+    - Social science: population series, birth rates or school enrollment
+    - Epidemiology: 传染病学 the number of influenza cases observed over some time 
+    - Medicine: blood pressure measurements traced over time for evaluating drugs
+  - Any metric that is measured over regular time intervals makes a time Series. Example: weather data, stock prices, industry forecasts, etc. 
+
+* How to create a Time Series in R? - import data into R
+```{r}
+par(mfrow=c(3,1))
+inputdata = rnorm(100,0,1)
+plot(ts(inputdata,frequency=12,start=1959),ylab='Monthly')
+plot(ts(inputdata,frequency=4,start=1959),ylab='Quarterly')
+plot(ts(inputdata,frequency=1,start=1959),ylab='Yearly')
+```
+  
+  
+```{r}
+# Example 1: yearly average global temperature deviations (1880-2009) in degress centigrade
+#require(astsa)
+par(mar=c(4,4,2,0.5)) #bottom, left, top, and right 四周留白的距离
+plot(globtemp, type='o',ylab = 'Global Temperature Deviation',col='blue')
+# The apparent upward trend in the series during the latter part of the twentieth century has been used as an argument for the global warming hypothesis.  
+# There was a leveling off at about 1935 and then another sharp upward trend at about 1970. 
+# The question of interest is whether the overall trend is natural or it is caused by some human-induced interface. 
+
+```
+
+
+* Understanding Time Series:
+  - Each data point ($Y_t$) at time $t$ in a Time Deries can be expressed as either a sum or product of **3 components**, as so to systematically understand, analyze, model and forecast it. 
+      - Seasonality ($S_t$)
+      - Trend ($T_t$)
+      - Error ($\epsilon_t$)
+  - **Addtive Time Series**  
+    $Y_t = S_t + T_t + \epsilon_t$
+  - **Multiplicative Time Series**  
+    $Y_t = S_t * T_t * \epsilon_t$
+  - A multiplicative time series can be converted to additive by taking a log of the time series. 
+    - $additiveTS = log(MultiplicativeTS)$
+
+## Decomposition
+```{r Decomposition of time series}
+# Decomposition of time series
+tsData = EuStockMarkets[,1]
+tsmulti = decompose(tsData,type='multiplicative') # multiplicative
+tsaddti = decompose(tsData,type='additive') # addtive
+plot(tsmulti)
+plot(tsaddti)
+stlRes = stl(tsData,s.window = 'periodic')
+#stlRes
+##  Call:
+##  stl(x = tsData, s.window = "periodic")
+## 
+## Components
+## Time Series:
+## Start = c(1991, 130) 
+## End = c(1998, 169) 
+## Frequency = 260 
+##              seasonal    trend    remainder
+## 1991.496   43.1900952 1602.604  -17.0445950
+## 1991.500   55.3795008 1603.064  -44.8134914
+## 1991.504   61.2914064 1603.523  -58.3048878
+## 1991.508   68.4470620 1603.983  -51.3900342
+## 1991.512   68.4527176 1604.442  -54.7351806
+## 1991.515   70.8396232 1604.902  -65.1315770
+```
+    
+## STL Decomposition
+* Seasonal and Trend decomposition using Loess,
+```{r STL}
+jj=astsa::jj
+dejj=stl(jj, s.window = "periodic", robust = 'TRUE')
+plot(jj)
+plot(HoltWinters(jj)) #Computes Holt-Winters Filtering of a given time series. Unknown parameters are determined by minimizing the squared prediction error.
+
+
+```
+
+
+## Lecture 02
+```{r Import library, message=FALSE, warning=FALSE}
+#need packages
+library('pander')
+library('gridExtra')
+library('devtools')
+library('zoo')
+library('latticeExtra')
+library('lattice')
+library('TSA')
+```
+
+Example of Time Series
+
+```{r JJ-astsa}
+# JJ Quarterly Earnings per share （84 quarters in 21 years from 1960-1980)
+plot(jj,type='o', xlab = 'Time',ylab='Earnings Per Share')
+#In this case, note the gradually increasing underlying trend and the rather regular variation superimposed on the trend that seems to repeat over quarters.逐渐增加的潜在趋势和相当有规律的变化叠加在趋势上，在季度重复 
+```
+```{r Financial Times Series}
+# Financial Times Series
+djiar = diff(log(djia$Close))[-1] 
+# approximate returns 
+plot(djiar, main="DJIA Returns") 
+```
+
+
+
+# Statistical Model of Time Series
+Given is a time series as a sequence of random variables, $x_1,x_2, x_3 \dots$
+
+## White noise 
+  - A collection of uncorrelated random variables, 
+  - $mean = E(w_j)=0$, and  finite $variance = \sigma_w^2$.  $w_t \sim (0,\sigma_w^2)$ 
+  - The designation 'white' comes from the analogy with white light that indicates that all possible periodic oscillations are present with equal strength. 白光表示所有可能的周期振荡都具有相同的强度
+  - **Autocovariance of White Noise**
+    - $\gamma_x(s,t)=cov(w_s,w_t)= \begin{cases} \sigma_w^2& s=t \\ 0& s\neq t \end{cases}$
+  - There are two ways the serial correlation can be presented with more smoothness into the time series models :
+    + **moving average**
+    + **Autoregression**
+
+## Random walk with drift
+  - $x_t=\delta*t+\Sigma^t_{j=1}w_j$
+  - mean function: $\u_{xt}=E(x_t)=\delta*t+\Sigma^t_{j=1}E(w_j)=\delta*t$
+  - eg:$x_t=\delta+x_{t-1}+w_t$ for $t=1,2...$
+```{r}
+set.seed(154) # so you can reproduce the results
+w = rnorm(200); x = cumsum(w) # two commands in one line
+wd = w +.2; xd = cumsum(wd)
+plot.ts(xd, ylim=c(-5,55), main="random walk", ylab='')
+lines(x, col=4); abline(h=0, col=4, lty=2); abline(a=0, b=.2, lty=2)
+legend('topleft',col=c('black','blue'),c("drift=0.2","drift=0"),lty=1)
+
+# set.seed(303)
+# xx = rnorm(101,sd=1.5)
+# ww = rnorm(101,sd=1.5)
+# for(t in 2:101) { xx[t] = xx[t-1] + ww[t] +0.2}
+# plot.ts(xx[2:101],main='random walk')
+```
+  
+
+
+## **Moving Average**:
+  - replacing $w_t$ by an average of current value + past value + future value
+  - $v_t = \frac{1}{3}(w_{t-1}+w_t+w_{t+1})$
+  - Inspecting the series shows a smoother version of the first series,较慢的振荡更明显，一些较快的振荡被去掉了
+  - **Mean Function**
+    - $\mu_{vt}=E(v_t)=\frac{1}{3}[E(w_{t-1})+E(w_{t})+E(w_{t+1})]=0$ for $w_t$ denotes a white noise
+  - **Autocovariance of Moving Average**
+    - $\gamma_v(s,t)=cov(x_s,x_t)=cov\{ \frac{1}{3}(w_{s-1}+w_s+w_{s+1}), \frac{1}{3}(w_{t-1}+w_t+w_{t+1})\}$
+    - Then $\gamma_v(s,t)=\begin{cases}\frac{3}{9}\sigma_w^2 & s=t, \\ \frac{3}{9}\sigma_w^2 & |s-t|=1 \\ \frac{1}{9}\sigma_w^2 & |s-t|=2\\0 & |s-t|>2 \end{cases}$
+  - **ACF**
+    - $\rho(h)=\begin{cases} \frac{\theta}{1+theta^2} & h=1\\0 & h>1\end{cases}$
+![](image/MA1.png){width=50%}
+
+```{r Moving Average}
+w = rnorm(500,0,1) # 500 N(0,1) variates
+v = filter(w, sides=2, filter=rep(1/3,3)) # moving average 
+# side = 2 past+future value, side = 1 past value
+par(mfrow=c(2,1))
+plot.ts(w, main="white noise")
+plot.ts(v, ylim=c(-3,3), main="moving average")
+```
+
+## **Autoregressions** 
+  - $w_t$ calculates the output using the second-order equation below
+  - 用过去的时间点的值代表现在这个(Stock prices and global temperature)
+  - $x_t=x_{t-1}-0.9x_{t-2}+w_t$ for $t=1,2,3 \dots 500$ representing a regression or prediction of the current value $x_t$ of the time series as a function of the past two values of the series is called autoregression
+  - We cannot use the ACF plot here because it will show good correlations even for the lags which are far in the past. 
+  - **Mean Function**
+    - $E(X_t)=E(X_{t-1})=...=E(X_p)=\mu$ thus,$E(X_t)=\mu=\delta +\alpha_1\mu+\alpha_2\mu+...+\alpha_p\mu+0 \Rightarrow \mu=\frac{\delta}{1-\alpha_1-\alpha_2-...-\alpha_p}$
+  - **ACF**
+    - $\rho(h)=\phi\rho(h-1)=\phi^h$
+![](image/AR1.png){width=50%}
+```{r Autoregressions} 
+#Example 1.10 p11
+w = rnorm(550,0,1) # 50 extra to avoid startup problems
+x = filter(w, filter=c(1,-.9), method="recursive")[-(1:50)] # remove first 50
+plot.ts(x, main="autoregression")
+```
+
+## **Signal in Noise**
+  - Many realistic models for generating time series assume an underlying signal with some consistent periodic variation, contaminated by adding a random noise. 
+  - Eg: regular cycle fMRI series  核磁共振 $x_t=2\cost(2\pi\frac{t+15}{50})+w_t$
+  - Sinusoidal waveform can be written as:
+    + $A\cost(2\pi \omega t+\phi)$
+    + A = amplitude振幅 = 2
+    + $\omega$ = the frequency of oscillation = $\frac{1}{50}$ = one cycle every time points
+    + $\phi$ = phase shift位移 = $\frac{2\pi15}{50}=0.6\pi$
+  - The ratio of the amplitude of the signal to $\sigma_w$ (or some function of the ratio) is sometimes called the **signal-to-noise ratio (SNR)**
+  
+```{r}
+cs = 2*cos(2*pi*1:500/50 + .6*pi)
+w = rnorm(500,0,1) 
+par(mfrow=c(3,1), mar=c(3,2,2,1), cex.main=1.5)
+plot.ts(cs, main=expression(2*cos(2*pi*t/50+.6*pi)))
+plot.ts(cs+w, main=expression(2*cos(2*pi*t/50+.6*pi) + N(0,1)))
+plot.ts(cs+5*w, main=expression(2*cos(2*pi*t/50+.6*pi) + N(0,25)))
+```
+
+* **Measures of Dependence**
+  - Time series： n random variables at arbitrary time points $t_1, t_2, t_3, … t_n$, for any positive integer n,
+  - Time series is provided by the joint distribution function, evaluated as the probability that the values of the series are jointly less than the n constants, $c_1, c_2, c_3, … c_n$
+  - $F_{t_1, t_2, t_3, … t_n}(c_1, c_2, c_3, … c_n)=Pr(x_{t1}<c_1,x_{t2}<c_2,… x_{tn}<c_n$
+  - Marginal distribution function: $F_t(x)=P\{x_t \leq x\}$ & marginal density functions $f_t(x)=\frac{\partial F_t(x)}{\partial x}$
+  
+### **Mean funciton**   $\mu_{xt}=E(x_t)=\int_{-\infty}^{\infty}xf_t(x)dx$
+  - Mean Function of a Moving Average Series
+    - $\mu_{vt}=E(v_t)=\frac{1}{3}[E(w_{t-1})+E(w_{t})+E(w_{t+1})]=0$ for $w_t$ denotes a white noise
+  - Mean Function of a Random Walk with Drift
+    - $\u_{xt}=E(x_t)=\delta*t+\Sigma^t_{j=1}E(w_j)=\delta*t$
+  - Mean Function of Signal Plus Noise
+    - $\mu_{xt}=E(x_t)=E[2\cos(2\pi \frac{t+15}{50})+w_t]=2\cos(2 \pi \frac{t+15}{50})+E(w_t)=2\cos(2 \pi \frac{t+15}{50})$
+  - Mean Function of Autoregressive 
+    - $E(X_t)=E(X_{t-1})=...=E(X_p)=\mu$ thus,$E(X_t)=\mu=\delta +\alpha_1\mu+\alpha_2\mu+...+\alpha_p\mu+0 \Rightarrow \mu=\frac{\delta}{1-\alpha_1-\alpha_2-...-\alpha_p}$
+    
+
+### **Autocovariance function**
+  - defined as the second moment product
+    - $\gamma_x(s,t)=cov(x_s,x_t)=E[(x_s-\mu_s)(x_t-\mu_t)]$ for all $s$ and $t$ (s & t,代表俩个时间点)
+  -  The autocovariance measures the _linear dependence_ between two points on the same series observed at different times.
+  - 两个变量在变化过程中是同方向变化？还是反方向变化？同向或反向程度如何？衡量X和Y的变化情况的同步性，cov为正值，且变化越类似，协方差值也越大
+  - Very smooth series exhibit autocovariance functions that stay large even when the $t$ and $s$ are far apart, whereas choppy series tend to have autocovariance functions that are nearly zero for large separations. 
+  - Autocovariance越小越无关，反之Autocovariance越大越相关, 
+  - $\gamma_x(s,t)=cov(x_s,x_t)=0$ means no linearly related
+  - $\gamma_x(t,t)=E[(x_t-\mu_t)^2]=var(x_t)$
+  - **Autocovariance of White Noise**
+    - $\gamma_x(s,t)=cov(w_s,w_t)= \begin{cases} \sigma_w^2& s=t \\ 0& s\neq t \end{cases}$
+  - **Autocovariance of Moving Average**
+    - $\gamma_v(s,t)=cov(x_s,x_t)=cov\{ \frac{1}{3}(w_{s-1}+w_s+w_{s+1}), \frac{1}{3}(w_{t-1}+w_t+w_{t+1})\}$
+    - Then $\gamma_v(s,t)=\begin{cases}\frac{3}{9}\sigma_w^2 & s=t, \\ \frac{3}{9}\sigma_w^2 & |s-t|=1 \\ \frac{1}{9}\sigma_w^2 & |s-t|=2\\0 & |s-t|>2 \end{cases}$
+  - **Autocovariance of Autoregressions**
+    - $\gamma(h)=\frac{\sigma^2_w\phi^h}{1-\phi^2}$
+    - as the separation between the two time points increases and disappears completely when the time points are separated by three or more time points.
+    
+    
+
+### ACF - Autocorrelation Function 
+  - ACF is an (complete) auto-correlation function which gives us values of **auto-correlation function** of any series with its lagged values.
+  - $\rho(s,t)=\frac{\gamma(s,t)}{\sqrt{\gamma(s,s)\gamma(t,t)}}$ predictability of the series at time $x_t$ using only value $x_s$
+  - $-1 \leq \rho(s,t) \leq 1$ - prob
+  - ACF plot： describes how well the present value of the series is related with its past values.体现现在数据和过去数据的相关性  
+  - $\rho_x(h)=\frac{\gamma_x(h)}{\gamma_x(0)}=\frac{cov(X_{t+h},X_t)}{cov(X_t,X_t)}=corr(X_{t+h},X_t)$
+  - A time series can have components like trend, seasonality, cyclic and residual. ACF considers all these components while finding correlations hence it’s a **complete** auto-correlation plot.
+    * time series : sample
+    * white noize  - 0
+    * trend - slow decay
+    * periodic - periodic
+    * MA(q) - zero for $|h|>q$ (ACF of MA(1) = $\rho(h)=\begin{cases} \frac{\theta}{1+theta^2} & h=1\\0 & h>1\end{cases}$
+)
+    * AR(p) - decays to 0 exponentially (ACF of AR(1)=$\rho(h)=\phi^h=\phi\rho(h-1)$)
+    * The ACF of an ARMA(1, 1) P 97
+
+covariance
+* $cov(X+Y,Z)=cov(X,Z)+cov(Y,Z)$
+* $cov(\alpha X,Y)=\alpha cov(X,Y)$
+* if X,Y idd, $cov(X,Y)=0$
+
+
+### PACF
+  - is a **partial** auto-correlation function.
+  - It finds correlation of the **residuals** (which remains after removing the effects which are already explained by the earlier lag(s)) with the next lag value,
+  - $\phi_{hh}=corr(x_{t+h}-\hat{x}_{t+h},x_t=\hat{x}_h)$ p99 tas4
+  - The PACF of an AR(1) p100
+  - The PACF of an AR(p) p100
+
+
+    
+### Stationary:
+* It holds the following conditions true:
+  - The **mean** value of time-series is **constant** over time, which implies, the trend component is nullified
+  - The variance does not increase over time
+  - **Seasonality** effect is minimal (it is devoid of trend or seasonal patterns, which makes it looks like a random white noise irrespective of the oserved time interval) 它没有趋势或季节性, 因此无论所保持的时间间隔如何，它看起来都像是随机的白噪声
+* **Stationarity of White Noise**
+  - Thus white noise satifies the conditions of weakly stationary. 
+  - ACF is $\rho_w(0)=1$ and $\rho(h)=1$ for $h \neq 0$.
+* **Stationarity of Moving Average** 
+  - ACF is symmetric about lag zero. 
+  - ACF is $\rho_v(h)=\begin{cases}1&h=0\\\frac{2}{3}&h=\pm1\\\frac{1}{3}&h=\pm2\\0&|h|>2 \end{cases}$
+* **strictly stationary** (tsa4,p19)
+  *  A stationary process is strictly or strongly stationary if its statistical distributions remain unchanged after a shift o the time scale. 
+  * time series is one for which the probabilistic behavior of every collection of values $\{x_{t_1},x_{t_2},\dots,x_{t_n}\}$ is identical to that of the time shifted set $\{x_{t_1+h},x_{t_2+h},\dots,x_{t_n+h}\}$,( time shifts $h = 0, \pm1,\pm2,...$)  
+  * $Pr\{x_{t_1} \leq c_1,...,x_{t_k} \leq c_k\}=Pr\{x_{t_1+h} \leq c_1,...,x_{t_k+h} \leq c_k\}$
+* **weakly stationary**
+  * $\mu$ is constant
+  * $\gamma(s,t)$ depends on s and t only through their difference |s-t|. ==> variance 可以有些不同
+
+
+## Time series models:
+* Time Series is a measure, it is a metric that is used to measure over the regular time such as stack prices, weather data, university enrollment, etc
+* Time series model can be done by:    
+  - The understanding of underlying forces and structures that produce the observed data.    
+  - Start to fit a model >> start to forecast a model >>, monitor or feedback and feed some forward control
+
+
+## **Stochastic process**
+* Stationarity + random time series = stochastic process.  
+* A time series, in which the observations fluctuate around a constant mean, have continuous variance and stochastically independent, is a random time series. Such time series do not exhibit any pattern:  
+  - Observations do not tend upwards or downwards  
+  - Variance does not increase or decrease with time  
+  - Observations do not tend to be large in some periods than others.
+* An example of a stationary random model can be written as:  $X_t=\mu+\epsilon_t$ where $\mu$  is a constant mean ($E(X_t)=\mu_t$) and $\epsilon_t$ is noise term (zero mean, constant variance and are independen)
+```{r Stochastic process}
+#Random process with mean 0 and standard deviation 1.5
+eps <- rnorm(400, mean = 0, sd = 1)
+mu <- 5  # the constant mean
+# Process
+X_t <- mu + eps
+# Plot
+ts.plot(X_t, main = "Example of (random) stationary time series", ylab = expression(X[t]))
+```
+
+## Classical regression in the time series
+* Linear regression model:
+* $x_t = \beta_0+\beta_1z_{t_1}+\beta_2z_{t_2}+...+\beta_qz_{t_q}+w_t$
+  - where $\beta_{0...p}$ are unknown fixed regression coeffs.
+  - $w_t$ is is a random error or noise consisting of independent and identically distributed (iid) normal variables with mean zero and variance $\sigma^2_w$, (For time series regression, it is rarely the case that the noise is white.)
+* Estimation of model
+* Variance of variables
+* Establishment of criteria
+    - Use of relations    
+    - Correction of relations    
+    - Use of lagged variables
+    - $x_t = \beta_0+\beta_1z_{t_1}+\beta_2z_{t_2}+...+\beta_qz_{t_q}+w_t$ where $w_t$ is iid. normal variables with $mean=0$, $variance = \sigma_w^2$
+```{r}
+summary(fit <- lm(chicken~time(chicken), na.action=NULL))
+plot(chicken, ylab="cents per pound",col='blue')
+abline(fit) # add the fitted line
+```
+##### Using Regression to Discover a Signal in Noise
+```{r Regression to Discover a Signal in Noise}
+set.seed(90210) # so you can reproduce these results
+x = 2*cos(2*pi*1:500/50 + .6*pi) + rnorm(500,0,5)
+z1 = cos(2*pi*1:500/50)
+z2 = sin(2*pi*1:500/50)
+summary(fit <- lm(x~0+z1+z2)) # zero to exclude the intercept
+par(mfrow=c(2,1))
+plot.ts(x)
+plot.ts(x, col=8, ylab=expression(hat(x)))
+lines(fitted(fit), col=2)
+```
+
+## **Autoregressive Models** 
+* A process $\{X_t\}$ will be called an autoregressive process of order p [AR(p)]if $$X_t=\delta +\alpha_1X_{t-1}+\alpha_2X_{t-2}+...+\alpha_pX_{t-p}+Z_t$$ 
+  * $Z_t$ is a purely random process  (mean = 0 and varianc $\sigma_Z^2$). 
+  * $X_t$ = current observation, is generated by a weighted average of past observations going back p periods, 
+* Mean function
+    * AR(p) is stationary if $E(X_t)=E(X_{t-1})=...=E(X_p)=\mu$ thus,$E(X_t)=\mu=\delta +\alpha_1\mu+\alpha_2\mu+...+\alpha_p\mu+0 \Rightarrow \mu=\frac{\delta}{1-\alpha_1-\alpha_2-...-\alpha_p}$
+* The series converges with the condition $|\alpha|<1$
+* **AR(1)** p79
+  * AR(1)= $x_t=\phi x_{t-1}+w_t=\phi(\phi x_{t-2}+w_{t-1})+w_t=\phi^kx_{t-k}+\Sigma^{k-1}_{j=0}\phi^jw_{t-j}$
+  * ACF of AR(1)=$\rho(h)=\phi^h=\phi\rho(h-1)$
+    - The ACF of AR(p) eventually decays exponentially toward zero; the PACF of AR(p) is truncated (becoming zero) after the p-th lag.
+![](image/AR1.png){width=50%}
+  * plot of $X_t=\alpha_1 X_{t-1}+Z_t$
+```{r}
+set.seed(101)
+#plot of Auto-regression
+# alpha = constants
+alpha = 0.5
+# random process with mean 0 and standard dev=1.5
+Z <- rnorm(100, mean = 0, sd = 1.5)
+# seed
+X <- rnorm(1)
+# process
+for (i in 2:length(Z)){  
+  X[i] <- 0.7*X[i-1]+Z[i] }
+# plot
+ts.plot(X)
+par(mfrow=c(2,1))
+acf(X)
+pacf(X)
+par(mfrow=c(2,1))
+plot(arima.sim(list(order=c(1,0,0), ar=.9), n=100), ylab="x",
+main=(expression(AR(1)~~~phi==+.9)))
+plot(arima.sim(list(order=c(1,0,0), ar=-.9), n=100), ylab="x",
+main=(expression(AR(1)~~~phi==-.9)))
+```
+
+## **Moving Average Model**
+* The moiving average model of order q or MA(q) model is defined to:
+$$x_t =w_t+\theta_1 w_{t-1}+...+\theta_q w_{t-q}$$
+* If $\theta_n > 0$, $x_t$ and $x_{t-n}$ are positively correlated.
+* If $\theta_n < 0$, $x_t$ and $x_{t-n}$ are negatively correlated.
+* **Mean function & autocorvariance** MA(q) - (p96)
+  * Mean: $E(x_t)=\Sigma^q_{j=0}E(w_{t-j})=0$
+  * Autocorvariance: $\gamma(h)=cov(x_{t+h},x_t)=cov(\Sigma^q_{j=0}\theta_jw_{t+h-j}),\Sigma^q_{k=0}\theta_k w_{t-k})=\begin{cases}\sigma^2_w\Sigma^{q-h}_{j=0}\theta_j\theta_{j+h} &0\leq h \leq q \\ 0 & h>q \end{cases}$
+  * $\rho(h)=\begin{cases} \frac{\Sigma^{q-h}_{j=0}\theta_j\theta_{j+h}}{1+\theta^2_1+...+\theta^2_q} & 1 \leq h \leq q \\  0 & h>q \end{cases}$
+* **MA(1)**
+![](image/MA1.png){width=50%}
+  * ACF of MA(1) = $\rho(h)=\begin{cases} \frac{\theta}{1+theta^2} & h=1\\0 & h>1\end{cases}$
+* The ACF of MA(q) is truncated (becoming zero) after the q-th lag; the PACF of MA(q) eventually decays exponentially toward zero.
+
+```{r}
+set.seed(101)
+#plot of Moving average 
+# theta = constants
+theta = 0.5
+# random process with mean 0 and standard dev=1.5
+Z <- rnorm(100, mean = 0, sd = 1.5)
+# seed
+X <- rnorm(1)
+# process
+for (i in 2:length(Z)){  
+  X[i] <- theta*Z[i-1]+Z[i] }
+# plot
+ts.plot(X)
+par(mfrow=c(2,1))
+acf(X)
+pacf(X)
+par(mfrow=c(2,1))
+plot(arima.sim(n = 100, model = list(MA = c(0.9)), sd = 1),main=(expression(MA(1)~~~theta==+.9)))
+plot(arima.sim(n = 100, model = list(MA = c(-0.9)), sd = 1),main=(expression(MA(1)~~~theta==-.9)))
+
+acf(arima.sim(n = 100, model = list(MA = c(0.9))),100)
+
+```
+![](image/table3.1.png){width=50%}
+## Causality, Invertibility tsa4 P88
+
+## ARIMA
+The introdu of ARIMA
+
+p is the number of autoregressive terms,
+d is the number of nonseasonal differences needed for stationarity, and
+q is the number of lagged forecast errors in the prediction equation.
+
+The patterns of ACF and PACF for stationary AR(P) and MA(q) processes are
+1. The ACF of AR(p) eventually decays exponentially toward zero; the PACF of AR(p) is truncated (becoming zero) after the p-th lag.
+2. The ACF of MA(q) is truncated (becoming zero) after the q-th lag; the PACF of MA(q) eventually decays exponentially toward zero.
+An extremely slow-decaying ACF is signal for nonstationarity, which can be formally verified
+by unit root tests
+
+##tsdisplay:
+https://rstudio-pubs-static.s3.amazonaws.com/477861_d23ca8d9390d407aab43c0171f70b72e.html
+
+
+https://uc-r.github.io/ts_benchmarking#resids
+
+
+## forecast
+
+
+# lecture 6 - ARIMA & SARIMA
+
+## Time Series modeling
+* Plot the time series.
+  - look for trends, seasonal compenents,step changes, outliers
+* Transform data so that residuals are **stationary**
+  - Esitimate and subtract $T_t,S_t$
+  - Differencing
+  - Nonlinear transformations (log,sqrt)
+* Fit model to residuals
+
+
+## ARIMA
+* An **ARIMA model** is a class of statistical models for
+analyzing and forecasting time series data.
+* It is a class of model that ‘explains’ a given time series _based on its own past values_, that is, its own lags and the lagged forecast errors, so that equation can be used to _forecast future values._
+* Any **non-seasonal** time series that exhibits patterns and is not a random white noise can be modeled with ARIMA models.
+* AR(p): *Autoregression**
+  * A model that uses the dependent relationship between an observation and some _number of lagged_ observations.
+  * $x_t = \varphi_1 x_{t-1}+...+\varphi_1 x_{t-p}+w_t$
+  * Linear regression model that uses its own lags as predictors.Linear regression models, as you know, work best when the predictors are not correlated and are independent of each other.
+* I: **Integrated**
+  * The use of _differencing_ of raw observations (e.g. subtracting an observation from an observation at the previous time step) in order to make the time series stationary.
+  *  $\nabla x_t= x_t-x_{t-1}$  - remove trends
+* MA(q): **Moving Average**
+  * A model that uses the dependency between an observation and a _residual error_ from a moving average model applied to lagged observations.
+  * $x_t =w_t+\theta_1 w_{t-1}+...+\theta_q w_{t-q}$ 
+* **Function for ARIMA**: 
+  * predicted$Y_t$+constant+linear combination lags of $Y$ (up to lags)+Linear Combination of Lagged forecast errors (up to q lags)
+  * $$x_t=\varphi_1 x_{t-1}+...\varphi_1 x_{t-p}+w_t+\theta_1 w_{t-1}+...+\theta_q w_{t-q}$$ 
+![](image/ARMA1.png){width=50%}
+
+
+## ARIMA(p,d,q)
+* **p** 
+  - The number of __lag__ observations included in the model, also called the lag order; order of the __AR term__.
+  - diff() 后, lag0后面有哪几个lag 超过 significant lines on *pacf plot*
+* **d**
+  - The number of times that the raw observations are differenced, also called the degree of differencing. number of __differencing__ required to make the time series __stationary__
+  - **Dickey Fuller test** - whether stationary
+  - difference data = remove trends - diff()
+  - if stationary, d = 0
+  - if not stationary, d = diff 的次数 **minimum differencing**
+  - 小心over differenced, 如果第2+次后，acf 出现负数 或者 too negative，则over diff,如果first order 后出现负数lag则应用
+  - In the event, you can’t really decide between two orders of differencing, then go with the order that gives the least standard deviation in the differenced series.
+* **q**
+  - order of the __MA term__, 
+  - Lags of the forecast errors
+  - *pacf plot*
+  
+![](image/table3.1.png){width=50%}
+Step 1： stationary
+```{r Dickey Fuller test, message=FALSE, warning=FALSE}
+library(astsa)
+library(forecast)
+tsdisplay(globtemp) # d =1
+tseries::adf.test(globtemp)
+# null hypothesis is not stationary.
+# P-value is greater than than the significance level,fail to reject the null hypothesis，then it is not stationary
+```
+
+```{r KPSS}
+# KPSS Test for Level Stationarity
+tseries::kpss.test(globtemp)
+#  null hypothesis for the test is that the data is stationary.
+# reject null - is not stationary
+```
+
+Step 2: find d
+```{r Difference the time series}
+df.ts = WWWusage
+par(mfcol=c(3,2))
+plot(df.ts)
+df1=diff(df.ts)
+df2=diff(diff(df.ts))
+plot(df1, main ="1st Order Differencing")
+plot(df2, main = "2nd Order Differencing")
+acf(df.ts)
+ACFdf1 <- acf(df1, plot = FALSE)
+plot(ACFdf1, main ="1st Order Differencing")
+ACFdf2= acf(df2,plot = FALSE)
+plot(ACFdf2, main = "2nd Order Differencing")
+# d = 0,1
+
+acf(df2,plot = T,type="covariance")
+```
+* For the above series, the time series reaches stationarity with two
+orders of differencing.
+* But on looking at the autocorrelation plot for the 2nd differencing the lag goes into the far negative zone fairly quick, which indicates, the series might have been over differenced.
+* So, I am going to tentatively fix the order of differencing as 1 even though the series is not perfectly stationary (weak stationarity).
+
+Step 3: find p
+```{r find-p}
+pacf(df1)
+# p = 0,1,2
+```
+
+Step 4: find q
+```{r find-q}
+acf(df1)
+```
+
+* Couple of lags are well above the significance line. So, let’s tentatively fix q as 2 or 3. When in doubt, go with the simpler model that sufficiently explains the Y.
+
+Step 5: q+d+p <= 6
+* overall,  d = 0,1 & p = 0,1,2 & q = 2,3
+* Let’s fit ARIMA(1,1,1), ARIMA(1,1,2), and ARIMA(1,1,3)
+
+**ARIMA(1,1,1)**
+```{r ARIMA(1,1,1)}
+fit1 <- Arima(df.ts, order=c(1, 1, 1),include.drift = TRUE)
+summary(fit1)
+predCI = forecast(fit1) #also gives you C.I
+autoplot(forecast(fit1))
+```
+
+**ARIMA(1,1,2)**
+```{r ARIMA(1,1,2)}
+fit2 <- Arima(df.ts, order=c(1, 1, 2),include.drift = TRUE)
+summary(fit2)
+
+predCI = forecast(fit2) #also gives you C.I
+autoplot(forecast(fit2))
+```
+
+**ARIMA(1,1,3)**
+```{r ARIMA(1,1,3)}
+fit3 <- Arima(df.ts, order=c(1, 1, 3),method="ML",include.drift = TRUE)
+summary(fit3)
+
+predCI = forecast(fit3) #also gives you C.I
+autoplot(forecast(fit3))
+```
+
+Step 6: compare the AIC and BIC values.
+```{r AIC&BIC}
+data.frame('AIC'= c(AIC(fit1),AIC(fit2),AIC(fit3)),'BIC'=c(BIC(fit1),BIC(fit2),BIC(fit3)),row.names=c("fit1","fit2","fit3"))
+
+```
+1. Ljung-Box - 点越接近dash line越好
+```{r sarima display}
+summary(auto.arima(df.ts))
+
+sar_fit1 = sarima(df.ts,1,1,1)
+sar_fit2 = sarima(df.ts,1,1,2)
+# or tsdiag(sar_fit1)
+```
+2. check Accuracy Metrics
+    - https://otexts.com/fpp2/accuracy.html
+    - MAPE: Mean Absolute Percentage Error
+    - Min-Max Error
+    - Correlation
+    - Why not use the other metrics?
+      * only above 3 are % error,
+      * other err are quantites:RMSE of 100 for a series whose mean is in 1000’s is better than an RMSE of 5 for series in 10’s.
+      * The function accuracy gives you multiple measures of accuracy of the model fit: mean error (ME), rootmean squared error (RMSE), mean absolute error (MAE), mean percentage error (MPE), mean absolutepercentage error (MAPE), mean absolute scaled error (MASE) and the first-order autocorrelation coefficient(ACF1).
+      
+```{r accuracy, message=FALSE, warning=FALSE}
+library(forecast)
+accuracy(fit1)
+```
+3. Actual vs. Fitted
+```{r actVSfit}
+plot(fit1$x,col="red")
+lines(fitted(fit1),col="blue")
+legend('topleft',c("actual","fitted"),col=c("blue","red"),lty=1)
+```
+
+## SARIMA
+* **Seasonal ARIMA** = ARIMA + seasonal terms
+* $ARIMA(p,d,q)(P,D,Q)_s $
+  - p: Trend autoregression order.
+  - d: Trend difference order.
+  - q: Trend moving average order.
+  - P: Seasonal autoregressive order.
+  - D: Seasonal difference order.
+  - Q: Seasonal moving average order.
+  - s: The number of time steps for a single seasonal period.
+* **General framework - equation** - backshift operator
+
+  * AR：$w_t=\phi(B)x_t$
+  * MA: $x_t=\theta(B)w_t$
+  * $\Phi_P(B^s)\phi_p(B)(1-B)^d(1-B^s)^DZ_t=\delta+\Theta_Q(B^s)\theta_q(B)w_t$
+  * $B^nx_t=x_{t-n}$
+  * $\Phi_P (B^s)=1-\Phi_1 B^s-\Phi_2 B^{2s}-...\Phi_pB^{ps}$  
+  * $\phi_P (B)=1-\phi_1 B-\phi_2 B-...\phi_pB$ 
+  * $\Theta_Q (B^s)=1-\Theta_1 B^s-\Theta_2 B^{2s}-...\Theta_QB^{Qs}$
+  * $\theta_q (B)=1-\theta_1 B-\theta_2 B-...\theta_p B$ 
+
+```{r message=FALSE, warning=FALSE}
+# Monthly anti-diabetic drug sales in Australia from 1992 to 2008.
+library(fpp) 
+df.ts= a10
+dff1=diff(df.ts)
+sdiff=diff(dff1,12) #since monthly period=12
+
+## Seasonal differencing
+par(mfrow=c(2,1))
+plot(df.ts,col="blue", main="usual differencing",ylim=c(-10,30))
+lines(dff1, col="red")
+plot(df.ts,col="blue", main="seasonal differencing",ylim=c(-5,30))
+lines(sdiff, col="red")
+
+```
+Step 1. Find D & d
+```{r Find D & d, fig.height=7, fig.width=10, message=FALSE, warning=FALSE}
+library(astsa)
+par(mfrow=c(4,1))
+tr.jj=diff(log(jj)) # log remove variance
+sdiff=diff(tr.jj,4) # since quarterly 
+plot(jj)
+plot(log(jj))
+plot(tr.jj,ylab="diff(log(jj))")
+plot(sdiff)
+
+acf(jj,100)
+acf(tr.jj,100)
+acf(sdiff,100)
+
+# lag1 = seasonal 1
+# D = 0,1，d = 0,1
+```
+
+Step 2. Find Q & q
+```{r Find Q & q}
+acf(sdiff,20)
+# Q:lag0-lag1之间cutoff
+# q:lag的cutoff
+# Q = 0,1
+# q = 0,1
+# parsimony principle: Q+D+P+p+d+q < 6
+```
+
+Step 3. Find P & p
+```{r Find P & p}
+pacf(sdiff,20)
+# P:lag0-lag1之间cutoff
+# p:lag的cutoff
+# Q = 0,1
+# q = 0,1
+# parsimony principle: Q+D+P+p+d+q < 6
+```
+
+Step 4. applied sarima function
+```{r sarima, message=FALSE, warning=FALSE}
+library(forecast)
+# by hand
+sarima(log(jj), 0,1,1,1,1,0,4,no.constant=FALSE)
+sarima(log(jj), 2,0,0,1,1,0,4, no.constant=FALSE)
+```
+* **Standardize Residual plot**
+  - fit well: mean zero and variance one. 
+  - If this plot shows a rectangular band of scatter around the zero level, with no notable trends over time, this indicates that the specified model is adequate. 
+  - Unless the time series is Gaussian, it is not enough that the residuals are uncorrelated. For example, it is possible in the non-Gaussian case to have an uncorrelated process for which values contiguous in time are highly dependent. As an example, we mention the family of GARCH models that are discussed in Chapter 5.  
+* **Q-Q plot**:
+  -  Determining whether the error terms are normally distributed in a time series model can be useful, since some inferences assume normal errors.  
+  - check for normal errors.  
+  - If the Q-Q plot resembles a straight line, then the assumption that the errors are normally distributed is reasonable. 
+* **ACF plot of residuals**
+  - There are several tests of randomness, for example the runs test, that could be applied to the residuals. We could also inspect the sample autocorrelations of the residuals, for any patterns or large values.
+  - Checking Independence of Errors:If the noise terms are truly white noise, they should be uncorrelated. However, the residuals from even a correctly specified model can have nonzero autocorrelations, especially for smaller lags.
+  - If the sample ACF of the residuals shows autocorrelations significantly different from zero, we may need to change the model.
+  - The naive bounds $\pm 2/\sqrt n$ can be used as a rough guide of significance; if sample autocorrelations stay well within these bounds, the autocorrelation can be assumed to be minimal.
+  - We should pay close attention to autocorrelations at lags 12, 24, . . . for monthly data, and 4, 8, . . . for quarterly data. Excessive autocorrelation at these lags can indicate we need to use a model that accounts for seasonality.  
+* **Ljung-Box Test for Serial Dependence**
+  - The null hypothesis of the Box Ljung Test, H0, is that our model does not show lack of fit (or in simple terms—the model is just fine). The alternate hypothesis, Ha, is just that the model does show a lack of fit. 
+That is, check that the residuals from a time series model resemble white noise. A good forecasting model will have to have zero correlation between its residuals or else you could not forecast them.  It naturally follows that if you can forecast the error terms then a better model must exist.  
+  - A significant p-value in this test rejects the null hypothesis that the time series isn’t autocorrelated. If the p value is greater than 0.05 then the residuals are independent which we want for the model to be correct.
+  
+Step 5. applied auto.arima function
+```{r checkresiduals}
+# auto
+sarima.fit=auto.arima(log(jj),seasonal = TRUE)
+checkresiduals(auto.arima(log(jj),seasonal = TRUE))
+```
+
+Step 6. prediction seasonal arima
+```{r}
+pred.fit = forecast(sarima.fit)
+autoplot(pred.fit,20)
+# The 95% prediction interval suggested that the real observation was highly likely to fall within the range of values between 2.745580	 and 3.091612
+```
+
+## Diffenence Equation
+* **diffenence equation**
+  * ARIMA : $\phi(B)x_t=\theta(B)w_t$
+  * $\phi_P (B^s)=1-\phi_1 B-\phi_2 B-...\phi_pB$ 
+  * $\theta_q (B^s)=1-\theta_1 B-\theta_2 B-...\theta_p B$ 
+  * Causality: stationary root of $\phi(B)=0$ outside the unit circle, $|B|>1$
+  * Invertibility: root of $\theta(B)=0$ outside the unit circle, $|B|>1$
+![Example 3.8 p88  complex root](image/invertible.jpeg){width=60%}  
+* eg2: ARMA(2,0) : $x_t=1.5x_{t-1}-0.75x_{t-2}+w_t$
+  - $x_t - 1.5x_{t-1}+0.75x_{t-2}=w_t$
+  - $x_t(1-1.5B+0.75B^2)=w_t$
+  - $\phi(B)=1-1.5B+0.75B^2=0$
+  - root:$1\pm\frac i{sqrt3} \Rightarrow \theta=tan^{-1}(\frac 1{sqrt3})=\frac{2\pi}{12} $
+```{r compute covariance}
+z = c(1,-1.5,.75) # coefficients of the polynomial
+a = polyroot(z)[1] #  1+0.57735i
+arg = Arg(a)/(2*pi) # arg in cycles/pt
+1/arg # the pseudo period
+
+# produce plots
+set.seed(8675309)
+ar2 = arima.sim(list(order=c(2,0,0), ar=c(1.5,-.75)), n = 144)
+plot(ar2, axes=FALSE, xlab="Time")
+axis(2); axis(1, at=seq(0,144,by=12)); box()
+abline(v=seq(0,144,by=12), lty=2,col='grey')
+
+
+# produc acf
+ACF = ARMAacf(ar=c(1.5,-.75), ma=0, 50)
+PACF =  ARMAacf(ar=c(1.5,-.75), ma=0, 50,pacf=TRUE)
+plot(ACF, type="h", xlab="lag")
+plot(PACF, type="h", xlab="lag")
+abline(h=0)
+
+# compute covariance --  gamma
+acf(ar2,plot = F,type="covariance")
+
+# compute correlation -- rho
+acf(ar2,plot = F,type="correlation")
+
+# compute partial correlation pacf 
+acf(ar2,plot = F,type="partial")
+pacf(ar2,plot = F) 
+```
+ 
+##### lab1 wave (Singnal in Noise)
+$y_t=Asin(2*\pi*f*t+\phi)$
+https://ademos.people.uic.edu/Chapter23.html
+```{r lab wave, message=TRUE, warning=FALSE}
+t = seq(0,4*pi,,100)
+a = 3  # amplitude
+b = 2 # width
+# noiseless plot of sine wave
+plot(a*sin(b*t),type='l',ylab='')
+
+# add noise
+n = 100
+c.unif=runif(n) # uniform error
+c.norm=rnorm(n) # gaussian/norma err
+amp = 2 # amplitude
+par(mfrow=c(3,1))
+plot(a*sin(b*t)+c.unif*amp,type='l',ylab='add uniform error')
+plot(a*sin(b*t)+c.norm*amp,type='l',ylab='add gaussian/norma err ')
+plot(jitter(a*sin(b*t),factor=1000),type='l',ylab='add noise with jitter function') # easier way to add noise in R is by using the jitter function.
+```
+
+```{r two waves, fig.height=7, fig.width=10, message=TRUE, warning=FALSE}
+# In order to demonstrate the beauty of ARIMA, we’re going to create a more complex time series that is made up of two sine waves added together that go up exponentially.
+par(mfrow=c(3,1))
+Sine1 = jitter(30*sin(2*t),factor=200)
+plot(t , Sine1,type = 'l') 
+Sine2 = jitter(20*sin(5*t+2),factor=200)
+plot(t , Sine2,type = 'l')
+TwoSines<-Sine1+Sine2
+plot(TwoSines,type = 'l')
+# the fact that there is a slow cycle of oscillations (Sine1)
+# the fact that there is a fast cycle of oscillations (Sine2)
+
+
+LineGoingUp<-seq(0.5,50,0.5)
+ExponentialLineGoingUp<-(3/5000000)*LineGoingUp^5
+par(mfrow=c(2,1))
+plot(ExponentialLineGoingUp, type="l") #This is the line that we'll add to our time series to make it go up exponentially
+
+TwoSinesGoingUpExponentially<-TwoSines+ExponentialLineGoingUp
+plot(t,TwoSinesGoingUpExponentially,type="l")
+# the fact that there’s noise in the data.
+# the fact that it goes up over time
+# the fact that its growth rate INCREASES over time
+```
+```{r log-adjusting, fig.height=7, fig.width=10, message=TRUE, warning=FALSE}
+par(mfrow=c(2,1))
+MultiplicativeTwoSinesGoingUp<-(TwoSines+100)*LineGoingUp
+plot(t,MultiplicativeTwoSinesGoingUp,type="l")
+
+LogTransformedSine<-log(MultiplicativeTwoSinesGoingUp)
+plot(t,LogTransformedSine,type="l")
+
+#The seasonal component at the beginning of the series is smaller than the seasonal component later in the series. in plot 1
+# log fix it
+```
+```{r Determining stationarity}
+tseries::adf.test(TwoSinesGoingUpExponentially, alternative = "stationary")
+# It looks like our p value is above .05, meaning that our data is indeed NON-stationary. This confirms the results of our visual inspection.
+```
+
+```{r Finding the d value, fig.height=7, fig.width=10, message=FALSE, warning=FALSE}
+Diff1TwoSinesGoingUpExponentially<-diff(TwoSinesGoingUpExponentially, differences=1)
+Diff2TwoSinesGoingUpExponentially<-diff(TwoSinesGoingUpExponentially, differences=2)
+plot(Diff2TwoSinesGoingUpExponentially, type="l")
+par(mfrow=c(3,1))
+plot(TwoSinesGoingUpExponentially, type="l")
+plot(Diff1TwoSinesGoingUpExponentially, type="l")
+plot(Diff2TwoSinesGoingUpExponentially, type="l")
+
+tseries::adf.test(Diff1TwoSinesGoingUpExponentially, alternative = "stationary")
+tseries::adf.test(Diff2TwoSinesGoingUpExponentially, alternative = "stationary")
+# until 2 become stationarity
+```
+```{r Finding the p and q values}
+acf(Diff2TwoSinesGoingUpExponentially, lag.max=30)
+# The little dotted blue line means that the autocorrelations exceed significance bounds.
+
+# In our case, it looks like our time series data repeatedly exceeds these bounds at certain lag points. There’s a recurring pattern involved. not good!
+pacf(Diff2TwoSinesGoingUpExponentially, lag.max=30)
+# Again, our data seems to follow a pattern at regular lag intervals. This is a sign that our data involves some kind of seasonal component
+```
+
+```{r Determining frequency }
+PGram<-TSA::periodogram(Diff2TwoSinesGoingUpExponentially)
+
+PGramAsDataFrame = data.frame(freq=PGram$freq, spec=PGram$spec)
+order = PGramAsDataFrame[order(-PGramAsDataFrame$spec),]
+top2 = head(order, 2) 
+top2  # display the 2 highest "power" frequencies
+
+TimePeriod<-1/top2[2,1] # 1/0.04
+TimePeriod 
+
+TimePeriod2<-1/top2[1,1]
+TimePeriod2 
+
+# These values – 25 and 10 – correspond exactly to the original sine waves that we put together. If you recall these plots, the first (slow) sine wave completed a cycle once every 25 time points, and the second (fast) sine wave completed its cycle once every 10 time points.
+```
+```{r Decomposing data }
+#Decomposing data once we know the frequency
+TwoSinesGoingUpExponentiallyFreq10 <- ts(Diff2TwoSinesGoingUpExponentially, frequency=10)
+RDecomp<-decompose(TwoSinesGoingUpExponentiallyFreq10)
+plot(RDecomp)
+SineWavesDecomposed <- stl(TwoSinesGoingUpExponentiallyFreq10, s.window="periodic")
+plot(SineWavesDecomposed)
+
+# a higher-frequency sine wave and a lower-frequency sine wave. That’s why, after the higher-frequency component is pulled apart, the trend still looks sine-y.
+```
+
+```{r season adjust data }
+SineWavesDecomposedSeasonalAdjusted <- seasadj(SineWavesDecomposed)
+plot(SineWavesDecomposedSeasonalAdjusted)
+
+TwoSinesGoingUpExponentiallyFreq25 <- ts(SineWavesDecomposedSeasonalAdjusted, frequency=25)
+
+SineWavesDecomposed2 <- stl(TwoSinesGoingUpExponentiallyFreq25, s.window="periodic")
+
+plot(SineWavesDecomposed2)
+
+SineWavesDecomposedSeasonalAdjusted2 <- seasadj(SineWavesDecomposed2)
+plot(SineWavesDecomposedSeasonalAdjusted2)
+#Now all that’s left here is the noise, with the seasonal component from the sine waves removed.
+
+#Now if we look at the autocorrelations and partial autocorrelations, we should see that our values don’t follow a pattern where they cross significance at recurring time lags as before:
+```
+
+```{r determine q p again }
+acf(as.numeric(SineWavesDecomposedSeasonalAdjusted2), lag.max = 30) #Because we're using a time series object, we'd have to convert it to a numeric vector instead. Otherwise the lags aren't presented as they should be.
+
+pacf(as.numeric(SineWavesDecomposedSeasonalAdjusted2), lag.max = 30)
+
+# The maximum significant lag values of the correlogram gives you the possible q values for the ARMA model. For instance, if our maximum value is 3, then an ARMA(0,3) model is possible.
+
+# The maximum significant lag values of the partial correlogram gives you the p value for an ARMA model. For instance, if our maximum value is 3, then an an ARMA(3,0) model would also be possible.
+```
+
+
+##### lab2  ARIMA Model1
+```{r season adjust, message=FALSE, warning=FALSE}
+library(forecast)
+elecequip=fpp::elecequip
+# a. Decompose the model to trend, seasonality, and stochastic parts.
+eeadj2 <- stl(elecequip, s.window="periodic")
+#head(eeadj2)
+plot(eeadj2)
+
+# b.  Adjust for seasonality.
+eeadj <- seasadj(stl(elecequip, s.window="periodic"))
+head(elecequip)
+head(eeadj)
+par(mfrow=c(2,1))
+plot(elecequip,main="original")
+plot(eeadj,main="after seasonal adj")
+```
+1. The time plot shows some sudden changes, particularly the big drop in 2008/2009. These changes are due to the global economic environment. Otherwise there is nothing unusual about the time plot and there appears to be no need to do any data adjustments.
+2. There is no evidence of changing variance, so we will not do a Box-Cox transformation.
+3. The data are clearly non-stationary as the series wanders up and down for long periods. Consequently, we will take a first difference of the data. The differenced data are shown in Figure 8.12. These look stationary, and so we will not consider further differences.
+
+```{r}
+# c. Find candidate models and find the model with the smallest AIC value. Plot the residuals of the model and comment on your findings.
+tsdisplay(diff(eeadj),main="") # d =1
+
+```
+4. The PACF shown in plots is suggestive of an AR(3) model. So an initial candidate model is an ARIMA(3,1,0). There are no other obvious candidate models.
+5. We fit an ARIMA(3,1,0) model along with variations including ARIMA(4,1,0), ARIMA(2,1,0), ARIMA(3,1,1), etc. Of these, the ARIMA(3,1,1) has a slightly smaller AICc value.
+```{r}
+fit.eeadj <- Arima(eeadj, order=c(3,1,1))
+summary(fit.eeadj )
+```
+6. The ACF plot of the residuals from the ARIMA(3,1,1) model shows all correlations within the threshold limits indicating that the residuals are behaving like white noise. A portmanteau test returns a large p-value, also suggesting the residuals are white noise.
+```{r Box.test}
+acf(residuals(fit.eeadj ))
+Box.test(residuals(fit.eeadj), lag=24, fitdf=4, type="Ljung")
+# High p-value suggests residuals are white noise
+# null white noise (model is just fine)
+```
+```{r prediction}
+pred = predict(fit.eeadj, n.ahead = 36)
+plot(elecequip,type='l',xlim=c(2004,2014),ylim=c(60,140))
+lines((pred$pred),col='blue')
+lines((pred$pred+2*pred$se),col='orange') #如果log了则10^(pred$pred+2*pred$se),
+lines((pred$pred-2*pred$se),col='orange')
+```
+
+# Lecture 7
+
+## cyclical behavior and periodicty
+
+
+* **cycle**
+  - a complete period of a sine or cosine function defined over a unit time inerval [](## Signal in Noise line 203)
+  - https://online.stat.psu.edu/stat510/lesson/6/6.1
+  - $x_t=Acos(2 \pi wt+\phi)$
+  - $w$ is frequency index $=1/T$ where T = number of time periods for a full cycle 
+    + $w=1$: one cycle per time unit;
+    + $w=0.5=\frac12$: a cycle every two time units; 
+  - A = amplitude 振幅 = 2
+  - $\phi$ = phase shift位移 
+```{r cycle, fig.height=5, fig.width=7}
+cs = 2*cos(2*pi*1:500/50 + .6*pi)
+cos=cos(2*pi*1:500/50)
+
+plot.ts(cs, main=expression(2*cos(2*pi*t/50+.6*pi)),lwd = 5,col='darkgrey')
+abline(v=c(seq(50, 500, by=50)),col="red",lwd = 2)
+lines(cos,col="blue",lwd = 2)
+grid(col = "grey")
+# A =2, 
+# w = 1/50 (one cycle every 50 time points) - red
+# phi = 0.6pi  - blue
+```
+```{r}
+cs=ts(cs)
+acf(cs,lag.max = 500)
+```
+
+* Mixtures of periodic series with multiple frequencies and amplitudes.
+  - $x_t=U_1\cos(2\pi wt)+U_2\sin(2\pi wt)$ here $A=\sqrt{U_1^2+U_2^2}$ where $U_1=A\cos \phi \text{ and }U_2=-A\sin \phi$
+  - example 4.1 in textbook
+    - $x_{t1}=2\cos(2\pi t6/100)+3\sin(2 \pi t 6/100)$
+      + $A^2=2^2+3^2=13$, thus the max and min values is $\pm\sqrt{13}=\pm3.61$
+    - $x_{t2}=4\cos(2\pi t10/100)+5\sin(2 \pi t 10/100)$
+      + $A^2=4^2+5^2=41$
+    - $x_{t3}=6\cos(2\pi t10/100)+7\sin(2 \pi t 40/100)$
+      + $A^2=6^2+7^2=85$
+    - $x_t=x_{t1}+x_{t2}+x_{t3}$
+    
+```{r multiple w & A}
+x1 = 2*cos(2*pi*1:100*6/100) + 3*sin(2*pi*1:100*6/100)
+x2 = 4*cos(2*pi*1:100*10/100) + 5*sin(2*pi*1:100*10/100)
+x3 = 6*cos(2*pi*1:100*40/100) + 7*sin(2*pi*1:100*40/100)
+x = x1 + x2 + x3
+par(mfrow=c(2,2))
+plot.ts(x1, ylim=c(-10,10), main=expression(omega==6/100~~~A^2==13))
+plot.ts(x2, ylim=c(-10,10), main=expression(omega==10/100~~~A^2==41))
+plot.ts(x3, ylim=c(-10,10), main=expression(omega==40/100~~~A^2==85))
+plot.ts(x, ylim=c(-16,16), main="sum")
+```
+
+## Spectral Density
+* We can calculate its power spectrum to determine what frequencies
+dominate the variance. 
+  -计算 **frequency domain** 
+* 频域图显示了在一个频率范围内每个给定频带内的信号量
+* The function ”spectrum” is used for calculating the periodogram (i.e.,
+an estimate of the spectral density) from time series.
+* **Spectral Density**
+  - Spectral Representation of an Autocovariance Function
+    + $x_t$ is stationary, autocovariance $\gamma(h)=cov(x_{t+h},x_t)$
+    + **SDF**$F(w)$spectral distribution function - unique monotonically increasing function
+    + $\gamma(h)=\int^{\frac12}_{-\frac12}e^{2\pi iwh}dF(w)$  where $dF(w)=f(w)dw$ and $h=0,\pm1,\pm2...$
+    + $\gamma(h)=\int^{\frac12}_{-\frac12}e^{2\pi iwh}f(w)dw$
+    + inverse transform of the spectral density
+      * $f(w)=\Sigma^{\infty}_{h=-\infty}\gamma(h)e^{-2\pi iwh}$ where $-1/2 \leq w \leq 1/2$
+        - eg: white noise $f(v)=\gamma(0)=\sigma_w^2$
+        - eg: AR(1) $f(v)=\frac{\sigma_w^2}{1-\phi_1cos(2\pi v)+\phi_1^2}$
+          + if $\phi_1>0$, positive autocorrelation, spectrum is dominated by low frequency components - smooth in the time domain 
+          + if $\phi_1<0$, negative autocorrelation, spectrum is dominated by low frequency components - rough in the time domain 
+        - eg: ARMA $f_x(w)=\sigma_w^2\frac{|\theta(e^{-2\pi iw})|^2}{|\phi(e^{-2\pi iw})|^2}$ where $\phi(z)=1-\Sigma^P_{k=1}\phi_kz^k$ and  $\theta(z)=1+\Sigma^P_{k=1}\theta_kz^k$ 
+![](./image/chap4-1.jpg){width=70%}
+        - MA(1)：the lower or slower frequencies have greater power than the higher or faster frequencies.(the power of frequency : amplitidue)
+        - AR(2):shows a strong power component at about ω = .16 cycles per
+point or a period between six and seven cycles per point and very
+little power at other frequencies.
+
+## Periodogram & Fourier Transform
+* 周期图 Periodogram :a way to discover the periodic components of a time series.
+* time domain：波形图以t为单位
+* frequency domain： freq= 1/t (signal analyzer - more sentive frequency vs Aamplitude)
+
+![](./image/chap4-3.png)
+
+* **DFT** discrete fourier transform
+  - 将波段变成一个个点，求每个点的变换[DFT6'30'](https://www.youtube.com/watch?v=mkGsMWi_j4Q&list=PL7D_uIIJnWiSUpKg0uRXHcHLe9_sbRyu8)
+  - For $x_1,x_2...x_n$,$d(w_j)=n^{-\frac12}\Sigma^n_{t=1}x_te^{2\pi iwh}$ where $j=0,1,...n-1$, $w_j=j/n$
+  - * Using DFT, we can analyze the energy in each frequency component
+* **Fourier Transform**
+https://www.youtube.com/watch?v=spUNpyF58BY&t=309s
+  - Joseph Fourier showed that any periodic wave can be represented by a sum of simple sinusoidal正弦曲线 waves. This sum is called the Fourier Series.
+  - Based on Fourier Series - represent periodic time series data as a sum
+  of sinusoidal components (sine and cosine).
+  - **(Fast) Fourier Transform [FFT]** – represent time series in the frequency domain (frequency and power).
+![](./image/chap4-11.png)
+  - **The Inverse (Fast) Fourier Transform [IFFT]** is the reverse of the FFT.
+  -  The Fourier Transform sees every trajectory轨迹 (aka time signal, aka signal) as a set of circular motions.
+  - Given a trajectory of the fourier transform (FT) breaks it into a set of related **cycles** that describes it. Each cycle has a **strength**, a **delay** and a **speed**.
+   - The **strength** is represented by the circle size.
+    - The **delay**, or starting point, is given by an initial value of d, a point moving in circles.
+    - The **speed** will be represented by the rate of change of d over time.
+
+```{r x1+x2+x3 spectrum}
+x1 = 2*cos(2*pi*1:100*6/100) + 3*sin(2*pi*1:100*6/100)
+# A = sqrt(2^2+3^2)=sqrt 13  w = 6/100
+x2 = 4*cos(2*pi*1:100*10/100) + 5*sin(2*pi*1:100*10/100)
+# A^2 = sqrt(4^2+5^2)= 41    w = 10/100
+x3 = 6*cos(2*pi*1:100*40/100) + 7*sin(2*pi*1:100*40/100)
+# A^2 = sqrt(6^2+7^2)= 85    w = 40/100
+x=x1+x2+x3
+par(mfrow=c(2,2))
+plot.ts(x1, ylim=c(-10,10), main=expression(omega==6/100~~~A^2==13))
+plot.ts(x2, ylim=c(-10,10), main=expression(omega==10/100~~~A^2==41))
+plot.ts(x3, ylim=c(-10,10), main=expression(omega==40/100~~~A^2==85))
+plot.ts(x, ylim=c(-16,16), main="sum")
+# Method 01 
+P = abs(2*fft(x)/100)^2
+#Fast Discrete Fourier Transform (FFT)
+Fr = 0:99/100
+par(mfrow=c(1,1))
+plot(Fr, P, type="o", xlab="frequency", ylab="periodogram",main='Periodogram with fft')
+# spike 0.06, frequency= 6/100 ,0.6 cycle 10 time point(second)
+# A = 13 --------- x1
+# spike 0.1, frequency= 1/10 ,1 cycle 10 time point(second)
+# A = 41 --------- x2
+# spike 0.4, frequency= 4/10 ,4 cycle 10 time point(second)
+# A = 85 --------- x3
+
+#There is a mirroring effect at the folding frequency of 1/2; consequently, the periodogram is typically not plotted for frequencies higher than the folding frequency.**_
+
+# sp <- spectrum(meas$Cases, log="no", spans=c(2,2), plot=FALSE)
+# delta <- 1/12
+# specx <- mspect$freq/delta
+# specy <- 2*mspect$spec
+# plot(specx, specy, xlab="Period (years)", ylab="Spectral Density", type="l")  # 横坐标为year 而不是frequency
+
+
+
+# Method 02
+sp=spectrum(x, log="no")
+
+1/sp$fre[which.max(sp$spec)] #1/frequency gives you the number of cycles
+max(sp$spec) #estimate of spectral density at predominant period
+U = qchisq(.025,2)
+L = qchisq(.975,2)
+cat("Lower bound for spectral density is : ",2*max(sp$spec)/L ,"\nUpper bound for spectral density is : ",2*max(sp$spec)/U )#)#lower bound for spectral density
+# Zoom
+# plot(sp$freq[1:100], sp$spec[1:100], type="l")
+
+# spectrum function
+#  spd=spectrum(ts(detrend, frequency = 1),, log="no")
+# The function `spectrum` is a wrapper for calculating the periodogram (i.e., an estimate of the spectral density) from time series. There are a couple issues that need to keep in mind:
+# 
+# * `spectrum` calculates the frequency axis in terms of cycles per sampling interval; it makes more sense to convert to cycles per unit time (so divide by the sampling interval)
+# * the spectrum will be far more interpretable if it is smoothed
+#   + Use the argument `**spans**`, which specifies the parameter(s) for the what is known as the modified Daniell kernel for smoothing the spectrum
+#     _ spans=c(7,7) 
+#   + Modified Daniell **kernel** is essentially just a running average (see code below for a sense of what these parameters do)
+#     _ kernel("modified.daniell") & kernel("daniell",4) 
+# No hard-and-fast rule for how to do this (try a couple different values)
+#   + the higher the number of spans, the more smoothing and the lower the peaks of the spectrum will be
+# * the default for `spectrum` is to calculate the spectrum on a log-scale
+# Use the argument `log="no"` to change this default
+# * The spectrum needs to be multiplied by 2 to make it actually equal to variance
+
+``` 
+
+
+```{r}
+# Method 03
+# spec.pgram(x, taper=0, log="no")
+# soi.ave = spec.pgram(soi, k, taper=0, log="no")
+# k = kernal kernel("modified.daniell") or kernel("daniell",n) n越大越smooth
+# log scaling will spread out the low frequencies and squish the high frequencies: default = log_10 所以要关掉
+# taper
+
+```
+
+## window function
+窗函数是频谱分析中一个重要的部分，窗函数修正了由于信号的非周期性并减小了频谱中由于泄露而带来的测量不准确性。
+快速傅里叶变换假定了时间信号是周期无限的。但在分析时，我们往往只截取其中的一部分，因此需要加窗以减小泄露。窗函数可以加在时域，也可以加在频域上，但在时域上加窗更为普遍。截断效应带来了泄漏，窗函数是为了减小这个截断效应，其设计成一组加权系数。例如，一个窗函数可以定义为：  
+w(t)=g(t)       -T/2<t<T/2  
+w(t)=0          其他    
+g(t)是窗函数，T是窗函数的时间. 待分析的数据x(t)则表示为：  
+x(t)=w(t)*x(t)'  
+x(t)'表示原始信号,x(t)表示待分析信号。
+boxcar window function//hamming window function
+https://blog.csdn.net/u013346007/article/details/54143599  
+**Tapering** :that it includes just a few oscillations of the period of interest.
+![](./image/chap4-4.png){width=50%} 
+### Convolution Theorem
+• by the convolution theorem, Fourier Transform of short piece is the Fourier Transform of indefinitely long time series convolved with Fourier Transform of window function.
+• So Fourier Transform of short piece is exactly Fourier Transform of indefinitely long time series when Fourier Transform of window function is a spike.
+Boxcar function 
+![](./image/chap4-6.png){width=50%} 
+• Left – time domain; Right – frequency domain
+• Top: indefinitely long cosine function, whose Fourier Transform is a
+spike
+  = boxcar function is any function which is zero over the entire real line except for a single interval where it is equal to a constant
+• Middle: Boxcar, whose Fourier Transform is a sinc() function
+• Bottom: Windowed time series, and its Fourier Transform.
+![](./image/chap4-7.png){width=50%} 
+![](./image/chap4-8.png){width=50%} 
+hamming window function
+![](./image/chap4-8.png){width=50%} 
+
+### Multi-taper Spectral Analysis
+to compute the power spectral density with each of these window functions separately and then average the result.
+：always taper a time series before
+computing the p.s.d.
+try a simple Hamming taper first
+it’s simple
+use multi-taper analysis when
+higher resolution is needed
+e.g. when the time series is very short
+![](./image/chap4-10.png){width=50%} 
+
+
+## Nonparametric Spectral Estimation
+![](./image/chap4-5.png){width=50%} 
+Non Parametric Vs. Parametric Es>ma>on
+• Parametric estimation = estimate a model that is specified by a fixed
+number of parameters.
+• Nonparametric estimation = estimate a model that is specified by a
+number of parameters that can grow as the sample grows.
+• Thus, the smoothed periodogram estimates we have considered are
+nonparametric: the estimates of the spectral density can be
+parameterized by estimated values at each of the Fourier frequencies.
+• As the sample size grows, the number of distinct frequency values
+increases. The time domain models we considered (linear processes)
+are parametric.
+• For example, and ARMA(p,q) process can be completely specified
+with p + q + 1 parameters.
+
+```{r SOI&rec confidence intervals }
+# SOI & Recruitment 
+library(stats)
+par(mfrow=c(2,1))
+soi.per = spec.pgram(soi, taper=0, log="no")
+abline(v=1, lty="dotted",col=2)
+abline(v=1/4, lty="dotted",col=2)
+abline(h=c(0.2635573167 , 38.40108003), lty="dotted",col=4)  #fS(1/12)  - blue
+abline(h=c( 0.01456529563 , 2.122206623 ), lty="dotted",col='pink') #fS(1/48) - pink
+
+rec.per = spec.pgram(rec, taper=0, log="no")
+abline(v=1/4, lty="dotted",col=2)
+# frequency axis is labeled in multiples of 1/12 m
+# thus frequency = 1 m=> 1/12
+# We notice a narrow-band peak at the obvious yearly (12 month) cycle w=1/12 
+# in a wide band at the lower frequencies that is centered around the four-year (48 month) cycle  1/4 m= 1/4*1/12 = 1/48 possible El Ni~no effect . This wide band activity suggests that the possible El Ni~no cycle is irregular, but tends to be around four years on average.
+
+
+cat("periodogram of the SOI series at freq 1/12 = 40/480" ,soi.per$spec[40],'\n') # 0.9722312  at 1/12
+cat("periodogram of the SOI series at freq 1/48 = 10/480" ,soi.per$spec[10]) # 0.05372962 at 1/48
+
+# conf intervals - returned value:
+U = qchisq(.025,2) # 0.05063
+L = qchisq(.975,2) # 7.37775
+# [0.26; 38.4] confidence interval for the spectrum fS(1/12)
+# [0.01; 2.12] confidence interval for the spectrum fS(1/48)
+cat("The 95% confidence interval for the spectrum fS(1/12) is [",2*soi.per$spec[40]/L,',',2*soi.per$spec[40]/U ,"]","\n","The 95% confidence interval for the spectrum fS(1/48) is [",2*soi.per$spec[10]/L,',',2*soi.per$spec[10]/U ,"]")
+
+# fS(1/12) :  [ 0.2635573167 , 38.40108003 ]  that the lower value of 0.26 is higher than any other periodogram ordinate, so it is safe to say that this value is significant.
+# fS(1/48) : [ 0.01456529563 , 2.122206623 ] again is extremely wide, and with which we are unable to establish significance of the peak.
+
+# the periodogram as an estimator is susceptible to large uncertainties, and we need to find a way to reduce the variance.
+```
+```{r  SOI&rec Averaged Periodogram}
+# bandwidth in this case is Bw = 9/480 = :01875 cycles per month for the spectral estimator
+
+par(mfrow=c(2,1))
+k = kernel("daniell", 4)
+soi.ave = spec.pgram(soi, k, taper=0, log="no")
+abline(v=c(.25,1,2,3), lty=2)
+
+# Repeat above lines using rec in place of soi on line 3
+soi.ave$bandwidth # 0.0649519 = reported bandwidth
+soi.ave$bandwidth*(1/12)*sqrt(12) # 0.01875 = Bw
+
+soi.ave = spec.pgram(rec, k, taper=0, log="no")
+abline(v=c(.25,1,2,3), lty=2)
+
+df = soi.ave$df
+U = qchisq(.025, df) 
+L = qchisq(.975, df) 
+soi.ave$spec[10]
+soi.ave$spec[40]
+
+# intervals
+df*soi.ave$spec[10]/L 
+df*soi.ave$spec[10]/U
+
+df*soi.ave$spec[40]/L
+df*soi.ave$spec[40]/U
+par(mfrow=c(1,1))
+soi.ave = spec.pgram(soi, kernel("modified.daniell", c(1,2)), taper=0, log="no")
+abline(v=c(.25,1), lty=2)
+soi.ave = spec.pgram(soi, kernel("modified.daniell", c(5,3)), taper=0, log="no")
+abline(v=c(.25,1), lty=2)
+soi.ave = spec.pgram(rec, kernel("modified.daniell", c(5,3)), taper=0, log="no")
+abline(v=c(.25,1), lty=2)
+
+```
+
+```{r soi tapering}
+s0 = spectrum(soi, spans=c(7,7), taper=0, plot=FALSE)
+s50 = spectrum(soi, spans=c(7,7), taper=.5, plot=FALSE)
+plot(s0$freq, s0$spec, log="y", type="l", lty=2, ylab="spectrum",
+xlab="frequency") 
+# dash line  taper=0 without tapering
+lines(s50$freq, s50$spec,col=4) 
+# solid line   taper=0.5
+
+# Notice that the tapered spectrum does a better job in separating the yearly cycle (w = 1) and the El Ni~no cycle (w=1/4).
+
+```
+
+```{r SOI&rec Coherence}
+sr=spec.pgram(cbind(soi,rec),kernel("daniell",9),taper=0,plot=FALSE)
+sr$df # df = 35.8625
+f = qf(.999, 2, sr$df-2) # = 8.529792
+C = f/(18+f) # = 0.318878
+plot(sr, plot.type = "coh", ci.lty = 2)
+abline(h = C)
+
+
+#coherence is persistent at the seasonal harmonic frequencies.
+# the seasonal frequency and the El Ni~no frequencies ranging between about 3 and 7 year periods are strongly coherent
+
+
+ccf(soi,rec)
+# There is clearly significant cross-correlation for short lags. Now we can investigate the wavelet coherence for the two series.
+```
+## Coherence 
+
+俩个wave 是否一致
+
+Coherence is a time-series measure similar to correlation. It’s a measure of recurrent phenomena (i.e., waves). Two waves are coherent if they have a constant relative phase.
+
+Most approaches to finding periodic behavior (including coherence) assume that the underlying series are stationary, meaning that the mean of the process remains constant. Clearly, this is not such a good assumption when the goal of an analysis is to study environmental change. Wavelets allow us to study localized periodic behavior. In particular, we look for regions of high-power in the frequency-time plot.
+
+We can demonstrate with a toy example from the `biwavelet` package. We know that the Multivariate ENSO Index (MEI) and the North Pacific Gyre Oscillation (NPGO) experience coherent fluctuations with a frequency of approximately 5-12 years. A small data set is included with `biwavelet` that includes monthly values of these two series from 1950-2009.
+
+
+# Lecture 8  ARCH/GARCH MODELS
+
+## Problem with variance 
+
+* Time Series modelling for Financial Data; financial time series data.
+* There are some time series where the variance changes consistently over time. In
+the context of a time series in the financial domain, this would be called
+increasing and decreasing volatility.
+* Not stationary 
+* Autoregressive models can be developed for univariate单变量的 time series data that is *stationary* (AR), has *a trend (ARIMA)*, and has *a seasonal component (SARIMA)*.
+* Classically, a time series with modest changes in variance can sometimes be adjusted using *a power transform,* such as by taking the Log or using a [*Box-Cox transform*](https://machinelearningmastery.com/power-transform-time-series-forecast-data-python/).
+* In time series where the variance is increasing in a systematic way, such as an
+increasing trend, this property of the series is called **heteroskedasticity**异方差性; changing or unequal variance across the series.
+* If the change in variance can be correlated over time, then it can be modeled using an autoregressive process, such as
+
+
+## Volatility clustering 波动集聚性
+
+* *Mean*  is stable
+* *volatility (or variability) of data changes over time.* In fact, the data show
+volatility clustering.
+* **Volatility clustering**; that is, highly volatile periods tend to be clustered together.
+* A problem in the analysis of these type of financial data is to forecast the volatility of future returns.
+
+
+## ARCH
+* **Autoregressive conditionally heteroscedastic**
+  * AR-Autoregressive: indicates that heteroscedasticity observed over different time periods may be autocorrelated.
+  * C-Conditional: informs that variance is based on past errors.
+  * H-Heteroscedasticity: implies the series displays unequal variance.
+  * ARCH simple conveys that the series in question has a time-varying variance(heteroscedasticity) that depends on (conditional on) lagged effects(autocorrelation).
+  * Var 被过去的值影响
+  * 下图：
+    - After an ARIMA model has been fit to the data，the residuals can be fitted by ARCH models. 
+    - Correlation list in  residuals.   
+![](./image/chap5-1.jpg){width=50%}    
+  * were created in the context of econometric and finance problems having to do with the amount that investments or stocks increase (or decrease) per time period, so there’s a tendency to describe them as models for that type of variable.
+  * **ARCH and GARCH models** for predicting the variance of a time series. 
+
+AR(1)-ARCH(1) Model
+
+* An ARCH model could be used for describing any series that has periods of *increased or decreased variance*. Most often it is used in situations in which there may be *short periods* of increased variation.
+* Specifically, an ARCH method models the variance **at a time step as a function of the residual errors** from a mean process (e.g. a zero mean).
+* EG:
+  - $y_t$ growth rate of stock at time t 增长率; $x_t$ value of stock at time t
+  - $y_t=\frac{x_t-x_{t-1}}{x_{t-1}}; x_t=(1+y_t)x_{t-1}$
+  - $y_t=\log(x_t-x_{t-1})$ if the return represents a small (in magnitude) percentage change
+  - **AR(1)-ARCH(1)** return as 
+    + $y_t=\sigma_t\epsilon_t=\text{white noise}+\sigma_t$ where $\epsilon_t \sim iid N(0,1)$
+    + $\sigma^2_t=\alpha_0+\alpha_1y^2_{t-1}$
+    + the conditional distribution of is Gaussian:
+      - $y_t \mid y_{t-1} \sim N(0,\alpha_0+\alpha_1y^2_{t-1})$
+    + it is possible to write the ARCH(1) model as a non-Gaussian AR(1)
+model in the square of the returns
+      - $y^2_t=\alpha_0+\alpha_1y^2_{t-1}+v_t$ where $v_t=\sigma^2_t(\epsilon_t-1)$  
+* **AR(q)-ARCH(m)**: eg. pg283 Example 5.4
+  - m: The number of lag squared residual errors to include in the ARCH model.
+  - $x_t=\phi_0+\phi_1x_{t-1}+...+\phi_qx_{t-q}+y_t$
+    - **$\phi_0$ = mu;  $\phi_1$ = ar1** in garchFit output
+  - $y_t=\sigma_t\epsilon_t$
+  - $\sigma^2_t=\alpha_0+\alpha_1y^2_{t-1}+...+\alpha_my^2_{t-m}$
+  - $\hat y_t=\epsilon_t\sqrt{\hat{\alpha}_0+\hat{\alpha}_1\hat{y}^2_{t-1}+...+\hat{\alpha}_m\hat{y}^2_{t-m}}$
+    - **$\alpha_0$ = omega;  $\alpha_1$ = alpha1** in garchFit output
+  - $y_t \mid y_{t-1}\dots y_{t-m} \sim N(0,\alpha_0+\alpha_1y^2_{t-1}+...+\alpha_my^2_{t-m})$
+* Simulation ARCH(1)
+  - $var(y \mid y_{t-1})=\sigma^2_t=5+0.5y^2_{t-1}$
+```{r simulated arch}
+# alpha0=5,alpha1=0.5
+set.seed(101)
+library(TSA)
+sim.data = ts(garch.sim(alpha=c(5,0.5),n=300))
+plot(sim.data,main='simulated ARCH(1)')
+acf(sim.data,25)
+# No correlations are significant, so the series looks to be white noise.
+pacf(sim.data^2,25)
+# has a single spike at lag 1 suggesting an AR(1) model for the squared series ~> ARCH(1)
+
+
+# simulated by loop 
+# y = rnorm(1000)
+# w=y
+# Y = c()
+# b=(length(y))
+# for (t in 1:b){
+#   Y[t] = w[t] * sqrt((a0 + a1*(y[t-1])^2))
+# }
+# simulated ARCH(1) series, looks like white noise
+```
+
+* conclusion above example
+  - **If $y_t$ appears to be white noise and $y_t^2$ appears to be AR(1), then an ARCH(1) model for the variance is suggested.**
+  - If the **PACF** of the $y_t^2$ suggests AR(m), then ARCH(m) may work.
+
+* Eg: 
+```{r arch-gnp, echo=TRUE, message=FALSE, warning=FALSE}
+gnp=astsa::gnp
+library(TSA)
+gnpgr = diff(log(gnp)) # get the growth rate - y
+ar1=arima(gnpgr,order=c(1,0,0))# fit an AR(1)
+resi =ar1$residuals
+acf2(resi^2, 24) # get (p)acf of the squared residuals
+```
+  - If the GNP noise term is ARCH, the squares of residuals from the fit should behave like a non-Gaussian AR(1) process; resi^2 和lag0 有相关性
+  - ACF and PACF of the squared residuals it appears that there may be some dependence, small, left in the residuals.  
+![](./image/chap5-3.png){width=80%} 
+
+
+## GARCH Model
+* **Generalized Autoregressive Conditional Heteroskedasticity**
+  - is an extension of the ARCH model that incorporates a moving average component together with the autoregressive component. 
+  - includes **lag variance terms** + **lag residual error**
+    - **AR(p)** models: the variance of the residuals (squared errors)
+      + p: The number of lag residual errors to include in the GARCH model.
+    - **MA(q)** portion models: the variance of the process.
+      + q: The number of lag variances to include in the GARCH model.
+* **GARCH(p,q)**
+  - GARCH(0,0) = white noise
+  - GARCH(p,0) = ARCH(p) 
+  - ARCH(p) -conditional variance is specified as a linear function of *past sample variances* only $(y_{t-1}...y_{t-p})$
+  - GARCH(p,q) process allows *lagged conditional varianc*e: $var(y_t \mid y_{t-1}...y_{t-p})$
+* **GARCH(1,1)**
+  - $y_t=\sigma_t\epsilon_t$
+  - $\sigma^2_t=\alpha_0+\alpha_1y^2_{t-1}+\beta_1 \sigma^2_{t-1}$
+  - $y_t^2=\alpha_0+(\alpha_1+\beta_1)y^2_{t-1}+v_1 -\beta_1 v_{t-1}$ where $v_t=\sigma^2_t(\epsilon_t^2-1)$
+* **GARCH(m,r)**
+  - $\sigma^2_t=\alpha_0+\Sigma^m_{j=1}\alpha_jy^2_{t-j}+\Sigma^r_{j=1}\beta_j \sigma^2_{t-j}$
+  - one-step-ahead forecasts of the volatility
+    + $\hat{\sigma}^2_{t+1}=\hat{\alpha}_0+\Sigma^m_{j=1}\hat{\alpha}_jy^2_{t+1-j}+\Sigma^r_{j=1}\hat{\beta}_j \hat{\sigma}^2_{t+1-j}$
+* **Find p & q**
+  - (data - mean)^2 or data^2
+* Simulation GARCH(1,1)
+  - $var(y \mid y_{t-1})=\sigma^2_t=5+0.05y^2_{t-1}+0.5\sigma^2_{t-1}$
+```{r simulate garch}
+# alpha0=5,alpha1=0.05,beta1=0.5
+set.seed(34662)
+library(TSA)
+sim.data2 = ts(garch.sim(alpha=c(5,0.05),beta=0.5,n=300))
+plot(sim.data2 ,main='simulated GARCH(1,1)')
+acf(sim.data2,25)
+pacf(sim.data,25)
+# The ACF of the series below shows that the series looks to be white noise.
+acf(sim.data2^2,25)
+pacf(sim.data2^2,25)
+# has a single spike at lag 1 suggesting an AR(1) model for the squared series ~> ARCH(1)
+```
+
+* Conclusion
+  - GARCH models may be suggested by an ARMA type look to
+the ACF and PACF of $y^2_t$
+  - In practice, things won’t always fall into place as nicely as they
+did for the simulated example in this lesson.
+
+```{r garch - nyse}
+nyse = astsa::nyse
+library(fGarch) 
+plot.ts(nyse)
+acf2(nyse)
+# This suggests an ARMA(1,1) So may be GARCH(1,1) model.
+acf2(nyse^2)
+nyse.g=garchFit(~garch(2,2),nyse)
+summary(garchFit(~garch(1,1),nyse))
+summary(garchFit(~garch(2,2),nyse))
+# m1.sim=garch(x=garch01.sim, order=c(0,1))  # order=c(0,1) specifies an ARCH(1) model
+
+arma = arima(nyse,order=c(1,0,1))
+arma.re = arma$residuals
+acf2(arma.re)
+acf2(arma.re^2)
+
+#prediction
+u = nyse.g@sigma.t
+plot(window(nyse, start=900, end=1000), ylim=c(-.22,.2), ylab="NYSE Returns")
+lines(window(nyse-2*u, start=900, end=1000), lty=2, col=4)
+lines(window(nyse+2*u, start=900, end=1000), lty=2, col=4)
+```
+* test
+  + hypothesis: Autoregression of residuals is different from 0. 
+  + p-value of **Box Ljung test** is greater than 0.05, and so we can reject the hypothesis that the autocorrelation of residuals is
+different from 0. The model thus adequately represents the residuals.
+  + **Jarque– Bera statistic tests** the residuals of the fit for normality based on the observed skewness and kurtosis, and it appears that the residuals have some nonnormal skewness and kurtosis.
+  + The **Shapiro–Wilk statistic tests** the residuals of the fit for normality based on the empirical order statistics.
+  
+Extensions to GARCH 
+* Various extensions to the original model have been proposed to overcome some of the shortcomings we have just mentioned.
+* **S-PLUS GARCH** model: will fit some non- normal, albeit symmetric, distributions.
+* EGARCH (exponential GARCH) model: For asymmetric return dynamics, which is a
+complex model that has different components for positive returns and for negative
+returns.
+* Integrated GARCH (IGARCH) model: In the case of persistence in volatility.

@@ -1,0 +1,519 @@
+---
+title: "ts-project"
+author: "xl"
+output: html_document
+---
+```{r message=FALSE, warning=FALSE}
+library(vars)
+library(astsa)
+library(forecast)
+library(tseries)
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+library(data.table)
+library(ggpubr)
+```
+
+
+```{r setup}
+# read data
+df = read.table(file = '2004-2019.tsv', sep = '\t', header = TRUE)
+df['X']=NULL
+colnames(df) = c("start_date", "end_date","region", "state", "fuel", "num_gas_stations",
+                   "unit", "avg_price","sd_price", "min_price","max_price","avg_price_margin",
+               "coef_dist","dist_avg_price","dist_sd_price","dist_min_price", "dist_max_price",
+                "coef_price", "year",  "month")
+
+```
+
+```{r message=FALSE, warning=FALSE}
+# rename the data
+
+df = df %>% mutate(region = recode(region, "SUL"="South", "SUDESTE"="Southeast", "CENTRO OESTE"="Midwest", 
+            "NORTE"="North", "NORDESTE"="Northeast"))
+table(df$region)
+
+df = df %>% mutate(fuel = recode(fuel, "ÓLEO DIESEL"="Diesel", "GASOLINA COMUM"="Regular Gasoline", "GLP"="LPG", "ETANOL HIDRATADO"="Hydrous Ethanol", "GNV"="Natural Gas", "ÓLEO DIESEL S10"="Diesel S10"))
+#table(df$fuel)
+
+#df[df$fuel=='LPG',]
+```
+
+```{r}
+colnames(df)
+# compute the average gas price 
+
+str(df)
+df2 = df[,c("start_date" ,"fuel",'min_price'
+            ,"max_price","avg_price","coef_dist","sd_price")]
+df3= df2 %>% 
+    group_by(start_date,fuel) %>%
+    summarise_all("mean")
+df3
+unique(df3$fuel)
+df3[df3$fuel=='Regular Gasoline',]
+
+```
+# data visulization
+```{r fig.height=8, fig.width=10}
+# df3=df3[df3$fuel!="Diesel S10",]
+df3$start_date = as.Date( df3$start_date)
+
+library(RColorBrewer)
+col_prod = brewer.pal(9,"BrBG")
+
+vis1 = ggplot() +
+  geom_line(data = df3[df3$fuel=="Hydrous Ethanol",],aes(start_date, avg_price),col=col_prod[1]) +
+  geom_ribbon(data = df3[df3$fuel=="Hydrous Ethanol",],aes(x = start_date, ymax = max_price, ymin = min_price), alpha = 0.6, fill = col_prod[1])+ theme(axis.title.x=element_blank(), axis.text.x=element_blank(), axis.title.y=element_blank())
+vis2 =ggplot() +geom_line(data = df3[df3$fuel=="Regular Gasoline",],aes(start_date, avg_price),col=col_prod[2]) +
+  geom_ribbon(data = df3[df3$fuel=="Regular Gasoline",], aes(x = start_date, ymax = max_price, ymin = min_price), alpha = 0.6, fill = col_prod[2])+ theme(axis.title.x=element_blank(), axis.text.x=element_blank(), axis.title.y=element_blank())
+vis3 = ggplot() +   geom_line(data = df3[df3$fuel=="Natural Gas",],aes(start_date, avg_price),col=col_prod[7]) +
+  geom_ribbon(data = df3[df3$fuel=="Natural Gas",], aes(x = start_date, ymax = max_price, ymin = min_price), alpha = 0.6, fill = col_prod[7])+ theme(axis.title.x=element_blank(), axis.text.x=element_blank(), axis.title.y=element_blank())
+vis4 =  ggplot() +  geom_line(data = df3[df3$fuel=="Diesel",],aes(start_date, avg_price),col=col_prod[8]) +
+  geom_ribbon(data = df3[df3$fuel=="Diesel",], aes(x = start_date, ymax = max_price, ymin = min_price), alpha = 0.6, fill = col_prod[8])  + theme(axis.title.x=element_blank(), axis.text.x=element_blank(), axis.title.y=element_blank())
+vis5 =  ggplot() +  geom_line(data = df3[df3$fuel=="LPG",],aes(start_date, avg_price),col=col_prod[3]) +
+  geom_ribbon(data = df3[df3$fuel=="LPG",], aes(x = start_date, ymax = max_price, ymin = min_price), alpha = 0.6, fill = col_prod[3])+ theme(axis.title.x=element_blank(), axis.text.x=element_blank(), axis.title.y=element_blank()) 
+vis6 =  ggplot() +  geom_line(data = df3[df3$fuel=="Diesel S10",],aes(start_date, avg_price),col=col_prod[9]) +
+  geom_ribbon(data = df3[df3$fuel=="Diesel S10",], aes(x = start_date, ymax = max_price, ymin = min_price), alpha = 0.6, fill = col_prod[9])+ theme(axis.title.x=element_blank(), axis.text.x=element_blank(), axis.title.y=element_blank())  
+
+#scale_x_date(labels = lbls, breaks =brks) 
+ggarrange(vis1, vis2,vis5,vis4,vis3,vis6, labels = c("Hydrous Ethanol",  "Regular Gasoline","LPG","Natural Gas","Diesel" ,"Diesel S10" ), ncol = 3, nrow = 2, font.label = list(size = 25, face = "bold"))
+
+
+ggarrange(vis1, vis2,vis5,vis4,vis3, labels = c("Hydrous Ethanol",  "Regular Gasoline","LPG","Natural Gas","Diesel"  ), ncol = 3, nrow = 2, font.label = list(size = 25, face = "bold"))
+```
+```{r}
+# decompose
+HE_ts=ts(df3[df3$fuel=="Hydrous Ethanol",]$avg_price,frequency=52)
+RG_ts=ts(df3[df3$fuel=="Regular Gasoline",]$avg_price,frequency=52)
+NG_ts=ts(df3[df3$fuel=="Natural Gas",]$avg_price,frequency=52)
+LPG_ts=ts(df3[df3$fuel=="LPG",]$avg_price,frequency=52)
+D_ts=ts(df3[df3$fuel=="Diesel",]$avg_price,frequency=52)
+
+ts_list = c(HE_ts,RG_ts,NG_ts,LPG_ts,D_ts)
+plot(decompose(HE_ts))
+plot(decompose(RG_ts))
+plot(decompose(NG_ts))
+plot(decompose(LPG_ts))
+plot(decompose(D_ts))
+```
+
+```{r}
+# decompose
+HE_ts=ts(df3[df3$fuel=="Hydrous Ethanol",]$avg_price)
+RG_ts=ts(df3[df3$fuel=="Regular Gasoline",]$avg_price)
+NG_ts=ts(df3[df3$fuel=="Natural Gas",]$avg_price)
+LPG_ts=ts(df3[df3$fuel=="LPG",]$avg_price)
+D_ts=ts(df3[df3$fuel=="Diesel",]$avg_price)
+
+
+
+# frequency analysis
+sp=spectrum(HE_ts, log="no")
+plot(sp,log='no',main="Periodogram for Hydrous Ethanol",xlim=c(0,0.5))
+points(sp$freq[which(sp$spec==sort(sp$spec,decreasing = T)[1])],sort(sp$spec,decreasing = T)[1],col=2)
+points(sp$freq[which(sp$spec==sort(sp$spec,decreasing = T)[2])],sort(sp$spec,decreasing = T)[2],col=2)
+text(sp$freq[which(sp$spec==sort(sp$spec,decreasing = T)[2])]+0.03,sort(sp$spec,decreasing = T)[2],paste(sp$freq[which(sp$spec==sort(sp$spec,decreasing = T)[2])]))
+text(sp$freq[which(sp$spec==sort(sp$spec,decreasing = T)[1])]+0.03,sort(sp$spec,decreasing = T)[1],paste(sp$freq[which(sp$spec==sort(sp$spec,decreasing = T)[1])]))
+
+
+sp=spectrum(RG_ts, log="no")
+plot(sp,log='no',main="Periodogram for Regular Gasoline",xlim=c(0,0.5))
+points(sp$freq[which(sp$spec==sort(sp$spec,decreasing = T)[1])],sort(sp$spec,decreasing = T)[1],col=2)
+points(sp$freq[which(sp$spec==sort(sp$spec,decreasing = T)[2])],sort(sp$spec,decreasing = T)[2],col=2)
+text(sp$freq[which(sp$spec==sort(sp$spec,decreasing = T)[2])]+0.03,sort(sp$spec,decreasing = T)[2],paste(sp$freq[which(sp$spec==sort(sp$spec,decreasing = T)[2])]))
+text(sp$freq[which(sp$spec==sort(sp$spec,decreasing = T)[1])]+0.03,sort(sp$spec,decreasing = T)[1],paste(sp$freq[which(sp$spec==sort(sp$spec,decreasing = T)[1])]))
+
+
+
+sp=spectrum(NG_ts, log="no")
+plot(sp,log='no',main="Periodogram for Natural Gas",xlim=c(0,0.5))
+points(sp$freq[which(sp$spec==sort(sp$spec,decreasing = T)[1])],sort(sp$spec,decreasing = T)[1],col=2)
+points(sp$freq[which(sp$spec==sort(sp$spec,decreasing = T)[3])],sort(sp$spec,decreasing = T)[3],col=2)
+text(sp$freq[which(sp$spec==sort(sp$spec,decreasing = T)[3])]+0.03,sort(sp$spec,decreasing = T)[3],paste(sp$freq[which(sp$spec==sort(sp$spec,decreasing = T)[3])]))
+text(sp$freq[which(sp$spec==sort(sp$spec,decreasing = T)[1])]+0.03,sort(sp$spec,decreasing = T)[1],paste(sp$freq[which(sp$spec==sort(sp$spec,decreasing = T)[1])]))
+
+
+
+sp=spectrum(LPG_ts, log="no")
+plot(sp,log='no',xlim=c(0,0.5),main="Periodogram for LPG")
+points(sp$freq[which(sp$spec==sort(sp$spec,decreasing = T)[1])],sort(sp$spec,decreasing = T)[1],col=2)
+points(sp$freq[which(sp$spec==sort(sp$spec,decreasing = T)[4])],sort(sp$spec,decreasing = T)[4],col=2)
+text(sp$freq[which(sp$spec==sort(sp$spec,decreasing = T)[4])]+0.03,sort(sp$spec,decreasing = T)[4],paste(sp$freq[which(sp$spec==sort(sp$spec,decreasing = T)[2])]))
+text(sp$freq[which(sp$spec==sort(sp$spec,decreasing = T)[1])]+0.03,sort(sp$spec,decreasing = T)[1],paste(sp$freq[which(sp$spec==sort(sp$spec,decreasing = T)[1])]))
+
+sp=spectrum(D_ts, log="no")
+plot(sp,log='no',xlim=c(0,0.5),main="Periodogram for Diesel")
+points(sp$freq[which(sp$spec==sort(sp$spec,decreasing = T)[1])],sort(sp$spec,decreasing = T)[1],col=2)
+points(sp$freq[which(sp$spec==sort(sp$spec,decreasing = T)[3])],sort(sp$spec,decreasing = T)[3],col=2)
+text(sp$freq[which(sp$spec==sort(sp$spec,decreasing = T)[3])]+0.03,sort(sp$spec,decreasing = T)[3],paste(sp$freq[which(sp$spec==sort(sp$spec,decreasing = T)[3])]))
+text(sp$freq[which(sp$spec==sort(sp$spec,decreasing = T)[1])]+0.03,sort(sp$spec,decreasing = T)[1],paste(sp$freq[which(sp$spec==sort(sp$spec,decreasing = T)[1])]))
+```
+
+
+
+```{r}
+# function for extract the data 
+df4 = df3[df3$fuel=='Hydrous Ethanol',][,c('start_date','avg_price')]
+df4=merge(df4,df3[df3$fuel=='Regular Gasoline',][,c('start_date','avg_price')],by='start_date')
+colnames(df4)=c('start_date',"Hydrous Ethanol",  "Regular Gasoline")
+df4=merge(df4,df3[df3$fuel=='LPG',][,c('start_date','avg_price')],by='start_date')
+df4=merge(df4,df3[df3$fuel=='Natural Gas',][,c('start_date','avg_price')],by='start_date')
+df4=merge(df4,df3[df3$fuel=='Diesel',][,c('start_date','avg_price')],by='start_date')
+
+colnames(df4) = c('start_date',"Hydrous Ethanol",  "Regular Gasoline", "LPG","Natural Gas","Diesel" )
+# which(df4$start_date == as.Date("2004-05-16"))
+df4['group'] = c(rep(1,785-52),rep(2,52))
+df4$start_date = as.Date( df4$start_date)
+str(df4)
+```
+
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+
+# scale the data
+df5 = data.frame( apply(df4[,2:6],2,scale))
+df5['date'] = as.Date(df4[,1])
+df5['group']=df4[,7]
+# split df to two group, set last year data as the reference
+df5_scaled = df5[df5$group==1,]
+df5_scaled2 = df5[df5$group!=1,]
+df5_scaled$group=NULL
+
+# labels and breaks for X axis text
+brks = df5_scaled$date[seq(1, length(df5_scaled$date),52)]
+lbls = unique(lubridate::year(df5_scaled$date))
+
+df5_scaled_melt <- reshape2::melt(df5_scaled, "date")
+# plot
+ggplot(df5_scaled_melt, aes(x=date)) + 
+  geom_line(aes(y=value,col=variable)) + 
+  labs(title="Scaled Average Gas Price", 
+       y="Average Price", 
+       color=NULL) +  # title 
+  scale_x_date(labels = lbls, breaks =brks) + # change to monthly ticks and labels
+scale_fill_brewer( palette = 3) +
+     theme(legend.position="top")+theme_gray()
+ # turn off minor grid
+
+# stl(ts(df5_scaled, frequency=52),
+#     s.window = "periodic") %>% plot
+
+acf1=ggAcf(df5_scaled$Hydrous.Ethanol,200)
+acf2=ggAcf(df5_scaled$Regular.Gasoline,200)
+acf3=ggAcf(df5_scaled$LPG,200)
+acf4=ggAcf(df5_scaled$Natural.Gas,200)
+acf5=ggAcf(df5_scaled$Diesel,200)
+ggarrange(acf1, acf2,acf3,acf4,acf5,
+          ncol = 1, nrow = 5)
+
+# rename the prepared data 
+df5_diff = data.frame( apply(df5_scaled[,1:5],2,diff))
+df5_diff['date'] = as.Date(df5_scaled[,1][-1])
+
+df5_diff_melt = reshape2::melt(df5_diff, "date")
+# plot
+ggplot(df5_diff_melt, aes(x=date)) + 
+  geom_line(aes(y=value,col=variable)) + 
+  labs(title="Average gas price with first differencing", 
+       y="Average Price", 
+       color=NULL) +  # title 
+  scale_x_date(labels = lbls, breaks =brks) + # change to monthly ticks and labels
+scale_fill_brewer( palette = 3) +
+     theme(legend.position="top")+theme_gray()
+
+
+
+acf1=ggAcf(df5_diff$Hydrous.Ethanol,200)
+acf2=ggAcf(df5_diff$Regular.Gasoline,200)
+acf3=ggAcf(df5_diff$LPG,200)
+acf4=ggAcf(df5_diff$Natural.Gas,200)
+acf5=ggAcf(df5_diff$Diesel,200)
+
+
+
+
+# rename the prepared data 
+df5_diff2 =df5_diff
+df5_diff2$Hydrous.Ethanol = c(diff(df5_diff2$Hydrous.Ethanol),NA)
+df5_diff2$LPG = c(diff(df5_diff2$LPG),NA)
+
+
+
+df5_diff_melt2 <- reshape2::melt(df5_diff2, "date")
+# plot
+ggplot(df5_diff_melt2, aes(x=date)) + 
+  geom_line(aes(y=value,col=variable)) + 
+  labs(title="Average gas price with second differencing.", 
+       y="Average Price", 
+       color=NULL) +  # title 
+  scale_x_date(labels = lbls, breaks =brks) + # change to monthly ticks and labels
+scale_fill_brewer( palette = 3) +
+     theme(legend.position="top")+theme_gray()
+
+
+acf1=ggAcf(df5_diff2$Hydrous.Ethanol,200)
+acf2=ggAcf(df5_diff2$Regular.Gasoline,200)
+acf3=ggAcf(df5_diff2$LPG,200)
+acf4=ggAcf(df5_diff2$Natural.Gas,200)
+acf5=ggAcf(df5_diff2$Diesel,200)
+ggarrange(acf1, acf2,acf3,acf4,acf5,
+          ncol = 1, nrow = 5)
+
+```
+
+
+# VAR:product price as exogenous variables
+
+https://www.r-econometrics.com/timeseries/varintro/
+
+```{r VAR2, fig.height=5, fig.width=5, message=FALSE, warning=FALSE, paged.print=FALSE}
+# df5_diff$date = NULL
+# df5_diff = df5_diff[complete.cases(df5_diff2),]
+
+var.fit2 = VAR(df5_scaled[,c(1:5)], 5, type = "trend", ic = "AIC",lag.max=3,season=80)
+summary(var.fit2)
+#plot(var.fit)
+pred_VAR2 <- predict(var.fit2,df5_scaled2[,c(1:5)],n.ahead=52)
+#plot(pred_VAR2)
+
+
+# compute  the acf resduals 
+acf1=ggAcf(residuals(var.fit2)[,1],200)
+acf2=ggAcf(residuals(var.fit2)[,2],200)
+acf3=ggAcf(residuals(var.fit2)[,3],200)
+acf4=ggAcf(residuals(var.fit2)[,4],200)
+acf5=ggAcf(residuals(var.fit2)[,5],200)
+ggarrange(acf1, acf2,acf3,acf4,acf5,
+          ncol = 1, nrow = 5)
+
+for (i in 1:5){
+  check_r=checkresiduals(residuals(var.fit2)[,i])
+}
+# > names(var.fit2$varresult)
+# [1] "Hydrous.Ethanol" 
+# [2] "Regular.Gasoline"
+# [3] "LPG"             
+# [4] "Natural.Gas"     
+# [5] "Diesel" 
+for (i in 1:5){
+print(Box.test(residuals(var.fit2)[,i], type = "Ljung-Box"))}
+```
+
+```{r undiff}
+#pred_VAR2$fcst
+#df_undiff1 = data.frame(num = 1:52)
+
+
+# add_trend = function(num,name){
+# df_undiff = data.frame(idx = 1:52)
+# for (i in name){
+#   df_undiff[i] = df5[735,i]+cumsum(pred_VAR2$fcst[[i]][,num])}
+# return(df_undiff)
+# }
+
+# undiff_avg = add_trend(1,name)
+# undiff_lower = add_trend(2,name)
+# undiff_upper = add_trend(3,name)
+
+# data.frame( apply(df4[,2:6],2,scale))
+
+# nor = function(v1){scales::rescale(v1, to=c(mean(v1)-0.5,max(v1)+0.5))}
+# undiff_lower = data.frame( apply(undiff_lower[,2:6],2,nor))
+# undiff_upper = data.frame( apply(undiff_upper[,2:6],2,nor))
+
+#df_undiff1 = data.frame(num = 1:52)
+# df_undiff1["Hydrous.Ethanol"] = df5$Hydrous.Ethanol[735]+cumsum(pred_VAR2$fcst[["Hydrous.Ethanol"]][,1])
+# df_undiff1["Regular.Gasoline"] = df5$Hydrous.Ethanol[735]+cumsum(pred_VAR2$fcst[["Regular.Gasoline"]][,1])
+# df_undiff1["Natural.Gas"] = df5$Hydrous.Ethanol[735]+cumsum(pred_VAR2$fcst[["Natural.Gas"]][,1])
+# df_undiff1["LPG"] = df5$Hydrous.Ethanol[735]+cumsum(pred_VAR2$fcst[["LPG"]][,1])
+# df_undiff1["Diesel"] = df5$Hydrous.Ethanol[735]+cumsum(pred_VAR2$fcst[["Diesel"]][,1])
+
+```
+
+
+Computing the metrics and ploting the result 
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+col_prod2 = brewer.pal(12,"Paired")
+
+name = c("Hydrous.Ethanol","Regular.Gasoline","Natural.Gas","LPG","Diesel")
+
+plot_result = function(pred.var,i,c1,c2){
+df_plotpred = data.frame(date=as.Date(df5$date),value = c(rep(NA,733),pred_VAR2$fcst[[i]][,1]))
+df_plotpred['lower'] =  c(rep(NA,733),pred_VAR2$fcst[[i]][,2])
+df_plotpred['upper'] = c(rep(NA,733),pred_VAR2$fcst[[i]][,3])
+  
+  vis = ggplot() +
+    geom_line(data = df5,aes(date, Hydrous.Ethanol),col=col_prod2[c1]) +
+      geom_line(data=df_plotpred,aes(date, value),col=col_prod2[c2])+
+      geom_ribbon(data = df_plotpred,aes(x = date, ymax = upper, ymin = lower), alpha = 0.5, fill = col_prod2[c2])+rremove('xlab')+ theme_gray()
+
+return(vis)
+}
+
+vis1_fit = plot_result(pred_VAR2,name[1],2,1)
+vis2_fit = plot_result(pred_VAR2,name[2],4,3)
+vis3_fit = plot_result(pred_VAR2,name[3],6,5)
+vis4_fit = plot_result(pred_VAR2,name[4],8,7)
+vis5_fit = plot_result(pred_VAR2,name[5],10,9)
+
+ggarrange(vis1_fit, vis2_fit,vis3_fit,vis4_fit,vis5_fit, labels = c("Hydrous Ethanol",  "Regular Gasoline","LPG","Natural Gas","Diesel"), ncol = 3, nrow = 2, font.label = list(size = 10, face = "bold"))
+#c("Hydrous.Ethanol","Hydrous.Ethanol","Regular.Gasoline","Regular.Gasoline","Natural.Gas","Natural.Gas","LPG","LPG","Diesel","Diesel")
+
+# reording the 
+df_acc_produc2t=  data.frame(product=c(rep(NA,10)),err_type=c(rep(NA,10)),ME=c(rep(NA,10)),RMSE=c(rep(NA,10)),MAE=c(rep(NA,10)),MPE=c(rep(NA,10)),MAPE=c(rep(NA,10)))
+for (i in 1:5) {
+df_acc_produc2t[i,]=c(name[i],"train",accuracy(var.fit2$varresult[[i]])[1:5])
+df_acc_produc2t[i+5,]=c(name[i],"test",accuracy(pred_VAR2$fcst[[i]][,"fcst"],df5_scaled2[,c(1:5)][,i]))
+}
+#df_acc_produc2t
+#write.csv(df_acc_product,"df_acc_product.csv" )
+
+# ggplot(data=df_acc_product)+
+#   geom_point(aes(product, RMSE))
+
+
+df_acc_produc2t[,-c(1,2)] <- sapply(df_acc_produc2t[,-c(1,2)],as.numeric)
+
+print(df_acc_produc2t, digits = 4)
+
+
+```
+```{r}
+#read.csv("df_acc_product.csv" )
+
+```
+
+# VAR: price info as exogenous variables
+
+
+```{r fig.height=5, fig.width=5, message=FALSE, warning=FALSE}
+
+# function for extract the data 
+
+
+
+#colnames(df4) = c('start_date',"Hydrous Ethanol",  "Regular Gasoline", "LPG","Natural Gas","Diesel" )
+# which(df4$start_date == as.Date("2004-05-16"))
+
+
+# acf1=ggAcf(HE["min_price"],200)
+# acf2=ggAcf(HE["max_price"],200)
+# acf3=ggAcf(HE["avg_price"],200)
+# acf4=ggAcf(HE["coef_dist"],200)
+# acf5=ggAcf(HE["sd_price"],200)
+# ggarrange(acf1, acf2,acf3,acf4,acf5,
+#           ncol = 1, nrow = 5)
+
+
+name2 =unique(df3$fuel)
+
+
+
+df_acc_avg =  data.frame(product=c(rep(NA,10)),err_type=c(rep(NA,10)),ME=c(rep(NA,10)),RMSE=c(rep(NA,10)),MAE=c(rep(NA,10)),MPE=c(rep(NA,10)),MAPE=c(rep(NA,10)))
+
+for(i in 1:5){
+
+  c1 = i*2
+  c2  = i*2-1
+  
+  gas = name2[i]
+  HE=df3[df3$fuel==gas,]
+  HE['group'] = c(rep(1,785-52),rep(2,52))
+  
+  HE$start_date = as.Date( HE$start_date)
+  HE_1=HE[HE['group'] ==1,]
+  HE_2=HE[HE['group'] ==2,]
+
+  var.fit_HE = VAR(HE_1[,c(3:7)], 5, type = "trend", ic = "AIC",season=80)
+  summary(var.fit_HE)
+  # check residual
+  check_r=checkresiduals(residuals(var.fit_HE)[,3])
+  box = Box.test(residuals(var.fit_HE)[,3], type = "Ljung-Box")
+  print(box)
+  
+  pred.var_HE <- predict(var.fit_HE,HE_1[,c(3:7)],n.ahead=52)
+  
+  df_acc_avg[i,]=c(name[i],"train",accuracy(var.fit_HE$varresult[[3]])[1:5])
+  df_acc_avg[i+5,]=c(name[i],"test",accuracy(pred.var_HE$fcst[[3]][,1],HE_2$avg_price))
+
+  df_plotpred = data.frame(date=as.Date(HE$start_date),value = c(rep(NA,733),pred.var_HE$fcst[["avg_price"]][,1]))
+  df_plotpred['lower'] =  c(rep(NA,733),pred.var_HE$fcst[["avg_price"]][,2])
+  df_plotpred['upper'] = c(rep(NA,733),pred.var_HE$fcst[["avg_price"]][,3])
+
+
+  vis.fit = ggplot() +
+  geom_line(data = HE,aes(start_date, avg_price),col=col_prod2[c1]) +
+  geom_line(data=df_plotpred,aes(date, value),col=col_prod2[c2])+
+  geom_ribbon(data = df_plotpred,aes(x = date, ymax = upper, ymin = lower), alpha = 0.5, fill = col_prod2[c2])+
+  rremove('xlab')+rremove("ylab")+theme_gray()
+
+  acf.fit=ggAcf(residuals(var.fit_HE)[,3],200)
+  assign(paste("vis", i, ".fit",sep = ""), vis.fit)
+  assign(paste("acf", i, ".fit",sep = ""), acf.fit)
+  assign(paste("checkr", i,sep = ""), check_r)
+  assign(paste("box", i,sep = ""), box)
+  
+}
+
+ggarrange(acf1.fit, acf2.fit,acf3.fit,acf4.fit,acf5.fit,
+          ncol = 1, nrow = 5)
+
+
+df_acc_avg[,-c(1,2)] <- sapply(df_acc_avg[,-c(1,2)],as.numeric)
+print(df_acc_avg, digits = 2)
+
+is.num <- sapply(df_acc_avg, is.numeric)
+df_acc_avg[is.num] <- lapply(df_acc_avg[is.num], round, 4)
+print(as.matrix(df_acc_avg))
+```
+```{r message=FALSE, warning=FALSE}
+print(box1)
+print(box2)
+print(box3)
+print(box4)
+print(box4)
+ggarrange(vis1.fit, vis2.fit,vis3.fit,vis4.fit,vis5.fit, labels = c("Hydrous Ethanol",  "Regular Gasoline","LPG","Natural Gas","Diesel"), ncol = 3, nrow = 2, font.label = list(size = 10, face = "bold"))
+
+```
+
+### EDA *2
+```{r fig.height=8, fig.width=6, message=FALSE, warning=FALSE}
+library(ggplot2)
+library(forecast)
+theme_set(theme_classic())
+
+# Plot each product's price per year
+
+library(RColorBrewer)
+col_prod = brewer.pal(15,"BrBG")
+
+brks = df5_scaled$date[seq(1, length(df5_scaled$date),52)]
+lbls = unique(lubridate::year(df5_scaled$date))
+
+
+
+
+df3_plot = df3
+df3_plot['year']=lubridate::year(df3$start_date)
+df3_plot['month']=month.abb[lubridate::month(df3$start_date)]
+df3_plot$year=as.factor(df3_plot$year)
+
+name2 =unique(df3_plot$fuel)
+
+  for(i in 1:5){
+
+    gas = name2[i]
+    vis=ggplot(df3_plot[df3_plot$fuel==gas,])+
+  geom_line(aes(x=month,y=scale(avg_price),group=year,col=year))+
+ rremove('xlab')+rremove("ylab")
+  theme_gray()# title 
+    
+  assign(paste("viss", i,sep = ""), vis)}
+
+ggarrange(viss1, viss2,viss3,viss4,viss5, labels = c("Hydrous Ethanol",  "Regular Gasoline","LPG","Natural Gas","Diesel"), ncol = 2, nrow = 3, font.label = list(size = 10, face = "bold"))
+
+
+
+
+```

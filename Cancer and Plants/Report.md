@@ -1,1 +1,4 @@
-Report 
+# Cancer and Plants
+
+Cancer is a disease caused when cells divide uncontrollably and spread into surrounding tissues. As a disease with a high mortality rate and low rehabilitation rate, cancer is the most leading cause of death, excluding heart disease and cancer rate becomes a vital indicator to measure public health.   According to the [report](https://www.who.int/zh/news-room/fact-sheets/detail/cancer) of WHO: 
+![](image/pie.png) .  Lung cancer is the most common cancer. Besides,  personal behavior factors (smoking, drinking, unhealthy diet and lack of exercise), physical, chemical and biological carcinogens( air pollution and exposure to asbestos) are also dangerous lung cancer-causing agents. As we know, the industrial sites are the main source of air pollution. Thus this project will explore the correlation factories and cancer, figuring out whether industrial sites should be responsible for cancer rate.

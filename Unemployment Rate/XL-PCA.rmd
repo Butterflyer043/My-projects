@@ -1,0 +1,322 @@
+---
+title: "512 proj-PCA"
+author: "xl"
+date: "4/24/2020"
+output: html_document
+---
+
+
+```{r}
+# library(clusterSim)
+library(ggplot2)
+library(RColorBrewer)
+library(ggpubr)
+```
+# Load data
+```{r}
+df=read.csv("clean_df_with_ec.csv")
+df['UEM.diff']=df$SL.UEM.TOTL.MA.ZS-df$SL.UEM.TOTL.FE.ZS
+
+dfback= df
+
+```
+
+# Visualization  
+
+
+```{r corr matrix, fig.height=5, fig.width=5}
+
+df_cor = dfback
+res <- as.data.frame(cor(df_cor[,4:41], method="pearson", use="p"))
+# remove the na from correlation matrix
+res [,"SI.POV.NAGP"]=NULL
+res=res[row.names(res)!="SI.POV.NAGP",]
+corrplot::corrplot(as.matrix(res), method= "color", order = "hclust", tl.cex = 0.3,tl.col = "black")
+
+# format with better view
+cor_r = tibble::rownames_to_column(as.data.frame(res), var = "row")
+cor_r <- tidyr::gather(cor_r, column, cor, -1)
+# check the top 9 correlated var with unemployment rate
+cor_r2=cor_r[abs(cor_r$cor)>0.8 & abs(cor_r$cor)!=1  ,]
+print(cor_r2)
+cor_r[ with(cor_r[cor_r$row=="SL.UEM.TOTL.ZS",], order(abs(cor))),]
+
+
+
+```
+
+```{r message=FALSE, warning=FALSE}
+
+# plot the scatter plot of unemployment rate with top9 correlated 
+col_prod = rev(brewer.pal(9,"GnBu"))
+vis1 = ggplot(df,aes(y=SL.UEM.TOTL.ZS) ) +
+  geom_point(aes(x=SL.UEM.TOTL.MA.ZS), color=col_prod[1],alpha=0.7) + 
+  labs( x='', y = "Unemployment")+rremove("ylab")+rremove('xlab')
+
+vis2 = ggplot(df,aes(y=SL.UEM.TOTL.ZS) ) +
+  geom_point(aes(x=SL.UEM.TOTL.FE.ZS), color=col_prod[2],alpha=0.7) + 
+  labs( x="Unemployment, female (% of female labor force)", y = "Unemployment")+rremove("ylab")+rremove('xlab')
+
+vis3 =  ggplot(df,aes(y=SL.UEM.TOTL.ZS)) +
+  geom_point(aes( x=SL.TLF.CACT.ZS), color=col_prod[3],alpha=0.7) +  labs(
+       x="Labor force rate, total (% of total population) ", y = "Unemployment")+rremove("ylab")+rremove('xlab')
+
+vis4 =  ggplot(df,aes(y=SL.UEM.TOTL.ZS)) +
+  geom_point(aes( x=UEM.diff), color=col_prod[4],alpha=0.7) +  labs(
+       x="Difference between Male and Female Unemploymente rate", y = "Unemployment")+rremove("ylab")+rremove('xlab')
+
+vis5 =  ggplot(df,aes(y=SL.UEM.TOTL.ZS)) +
+  geom_point(aes( x=SL.EMP.WORK.ZS), color=col_prod[5],alpha=0.7) +  labs(
+       x="Wage and salaried workers, total (% of total employment)", y = "Unemployment")+rremove("ylab")+rremove('xlab')
+
+vis6 =  ggplot(df,aes(y=SL.UEM.TOTL.ZS)) +
+  geom_point(aes( x=SE.PRM.ENRL.TC.ZS), color=col_prod[7],alpha=0.7) +  labs(
+       x="Pupil-teacher ratio, primary", y = "Unemployment")+rremove("ylab")+rremove('xlab')
+
+vis7 =  ggplot(df,aes(y=SL.UEM.TOTL.ZS)) +
+  geom_point(aes( x=Government.Spending), color=col_prod[6],alpha=0.7) +rremove('xlab')+rremove("ylab")
+
+
+vis8 =  ggplot(df,aes(y=SL.UEM.TOTL.ZS)) +
+  geom_point(aes( x=NY.GDP.MKTP.KD.ZG), color=col_prod[8]) +rremove("ylab")+rremove('xlab')
+
+
+vis9 =  ggplot(df,aes(y=SL.UEM.TOTL.ZS)) +
+  geom_point(aes( x=Business.Freedom), color=col_prod[9]) +rremove("ylab")+rremove('xlab')
+
+
+
+ggarrange(vis1, vis2,vis3,vis4,vis5,vis7,vis6,vis8,vis9, ncol = 3, nrow = 3, legend = "none" ,
+labels = c("Unemployment, male \n(% of male labor force)", "Unemployment, female \n(% of female labor force)","Labor force rate, total \n(% of total population)","Difference between Male and \nFemale Unemploymente rate","Wage and salaried workers, \ntotal (% of total employment)","Government Spending","Pupil-teacher ratio, primary","GDP growth (annual %)","Business.Freedom"),font.label = list(size = 8, face = "bold"))
+
+
+```
+
+
+
+# Dealing with missing value
+https://rpubs.com/esobolewska/pcr-step-by-step
+http://pbil.univ-lyon1.fr/members/dray/files/articles/dray2015a.pdf
+
+1. fill the missing value 
+```{r fill_na set_up}
+# read and scale data
+df=read.csv("onehot_cleaned.csv")
+df$X = NULL
+
+#df = dfback 
+df$SI.POV.NAGP=NULL
+df['UEM.diff']=df$SL.UEM.TOTL.MA.ZS-df$SL.UEM.TOTL.FE.ZS
+df_scale = data.frame(scale(df[,c(4,7:39,45)]))
+names(df_scale)[1] = 'y'
+df_scale['y_unscaled'] = df$SL.UEM.TOTL.ZS
+df_scale['year'] = df$year
+
+```
+
+```{r fill}
+set.seed(101)
+library(missMDA)
+
+# estimate number of components
+nb <- estim_ncpPCA(df_scale[1:35],ncp.max=6,method = c("Regularized"))
+# actual impute
+x.impute <- imputePCA(df_scale[1:35],nb$ncp)
+x_imp = as.data.frame(x.impute)
+x_imp["year"]=df_scale['year']
+x_imp["y_unscaled"]=df_scale['y_unscaled']
+names(x_imp)[1]='y'
+
+row.18 = which(x_imp$year == 2018)
+x.18=x_imp[row.18,]
+x.yr=x_imp[-row.18,]
+#final dim of imptation missing value of data
+dim(x_imp)
+#[1] 825  72 
+# variable: 2:35
+# final dim for fill data is (825,35)
+```
+
+```{r}
+# fit pca with completeObs
+pca.fit = prcomp(x.yr[,c(2:35)])
+summary(pca.fit)
+# plot the Cumulative Proportion 
+plot(summary(pca.fit)$importance[3,],ylab='Cumulative Proportion',xlab='PC#')
+points(21,summary(pca.fit)$importance[3,][21],pch=2,cex=2,col='red')
+abline(h=0.95,col='deepskyblue1',lty=1)
+text(21,0.9,'(pc21,0.95)',col='red',cex=1)
+
+
+
+
+ols.data <- cbind(x.yr$y, as.data.frame(pca.fit$x[,1:21]))
+names(ols.data)[1]='y'
+fit.reg <- lm(y~ ., data = ols.data)
+summary(fit.reg)
+#Multiple R-squared:  0.401,
+
+# get pca test
+pca.test = predict(pca.fit,newdata=x.18[,c(2:35)])
+ols.data2 = cbind(x.18$y, as.data.frame(pca.test[,1:21]))
+# get regression test
+test.pred = predict(fit.reg, newdata = ols.data2)
+train.pred = predict(fit.reg, newdata = ols.data)
+
+rmse.test = mean((x.18$y-test.pred)^2)
+rmse.train = mean((x.yr$y-train.pred)^2)  
+cat("rmse.test = ",rmse.test)
+cat("rmse.train = ",rmse.train)
+#rmse.test =  0.5620509
+#rmse.train =  0.6186431
+
+
+# plot the correlation matrix again
+res1 <- cor(pca.fit$x, method="pearson")
+corrplot::corrplot(res1, method= "color", order = "hclust", tl.cex = 0.3,tl.col = "black")
+
+```
+
+# plotting & the result
+```{r}
+library(ggplot2)
+col_prod = brewer.pal(12,"Paired")
+
+
+# plot the resid analysis
+p1<-ggplot(fit.reg, aes(.fitted, .resid))+geom_point()
+p1<-p1+stat_smooth(method="loess")+geom_hline(yintercept=0, col="red", linetype="dashed")
+p1<-p1+xlab("Fitted values")+ylab("Residuals")
+p1<-p1+ggtitle("Residual vs Fitted Plot(replacing the missing value)")+scale_fill_brewer( palette = 3)
+p1
+
+hist(residuals(fit.reg),main='Histogram of residuals (replacing the missing value)')
+grid()
+hist(residuals(fit.reg), add = TRUE, col = 'white',main='Histogram of residuals(replacing the missing value)')
+
+
+#### plot prediction  with orginal value of y
+ols.data <- cbind(x.yr$y_unscaled, as.data.frame(pca.fit$x[,1:22]))
+names(ols.data)[1]='y_unscaled'
+fit.reg <- lm(y_unscaled~ ., data = ols.data)
+summary(fit.reg)
+
+pca.test = predict(pca.fit,newdata=x.18[,c(2:40)])
+ols.data2 = cbind(x.18$y_unscaled, as.data.frame(pca.test[,1:22]))
+test.pred = predict(fit.reg, newdata = ols.data2)
+train.pred = predict(fit.reg, newdata = ols.data)
+
+rmse.test = mean((x.18$y_unscaled-test.pred)^2)
+rmse.train = mean((x.yr$y_unscaled-train.pred)^2)  
+cat("rmse.test = ",rmse.test)
+cat("rmse.train = ",rmse.train)
+#rmse.test =  17.89699
+#rmse.train =  19.80474
+
+
+df_plot = data.frame(x=x.18$y_unscaled,y=test.pred)
+ggplot(df_plot, aes(x=x,y=y)) + geom_point(col=col_prod[1])+
+  geom_abline(slope = 1,col=col_prod[2])+
+  labs(title="Predicted VS Actual(replacing the missing value)", 
+       y="Predict Unemployment Rate", 
+       x = "Real Unemployment Rate",
+       color=NULL) + 
+     theme(legend.position="top")
+
+```
+
+
+
+# with non-Missing Value
+
+
+```{r}
+
+df_na = read.csv("nonNA.csv")
+df_na$Overall.Score = NULL
+df_na['UEM.diff']=df_na$SL.UEM.TOTL.MA.ZS-df_na$SL.UEM.TOTL.FE.ZS
+df_na_scale = data.frame(scale(df_na[,c(4,7:25,33)]))
+names(df_na_scale)[1] = 'y'
+df_na_scale['y_unscaled'] = df_na$SL.UEM.TOTL.ZS
+df_na_scale['year'] = df_na$year
+
+row.18 = which(df_na_scale$year == 2018)
+
+x.18=df_na_scale[row.18,]
+x.yr=df_na_scale[-row.18,]
+dim(df_na_scale)
+#dim of remove: 
+# variable 2:21
+# 802  19
+```
+## residuals analysis
+```{r}
+set.seed(101)
+
+# fit pca with completeObs
+pca.fit = prcomp(x.yr[,c(2:21)])
+summary(pca.fit)
+# select the pca that explained 95% variable
+plot(summary(pca.fit)$importance[3,],ylab='Cumulative Proportion',xlab='PC#')
+points(14,summary(pca.fit)$importance[3,][14],pch=2,cex=2,col='red')
+abline(h=0.95,col='deepskyblue1',lty=1)
+text(14,0.9,'(pc14,0.95)',col='red',cex=1)
+
+ols.data <- cbind(x.yr$y, as.data.frame(pca.fit$x[,1:14]))
+names(ols.data)[1]='y'
+fit.reg <- lm(y~ ., data = ols.data)
+summary(fit.reg)
+
+hist(residuals(fit.reg),main="Histogram of residuals (removing the missing value)",)
+grid()
+hist(residuals(fit.reg), add = TRUE, col = 'white',main='Histogram of residuals')
+
+pca.test = predict(pca.fit,newdata=x.18[,c(2:21)])
+ols.data2 = cbind(x.18$y, as.data.frame(pca.test[,1:14]))
+test.pred = predict(fit.reg, newdata = ols.data2)
+train.pred = predict(fit.reg, newdata = ols.data)
+
+rmse.test = mean((x.18$y-test.pred)^2)
+#0.6027348
+rmse.train = mean((x.yr$y-train.pred)^2)  
+#0.6545855
+cat("rmse.test = ",rmse.test)
+cat("rmse.train = ",rmse.train)
+
+### ploting with unscaled data
+ols.data <- cbind(x.yr$y_unscaled, as.data.frame(pca.fit$x[,1:14]))
+names(ols.data)[1]='y_unscaled'
+fit.reg <- lm(y_unscaled~ ., data = ols.data)
+#summary(fit.reg)
+
+pca.test = predict(pca.fit,newdata=x.18[,c(2:21)])
+ols.data2 = cbind(x.18$y_unscaled, as.data.frame(pca.test[,1:14]))
+test.pred = predict(fit.reg, newdata = ols.data2)
+train.pred = predict(fit.reg, newdata = ols.data)
+
+
+col_prod = brewer.pal(12,"Paired")
+df_plot = data.frame(x=x.18$y_unscaled,y=test.pred)
+ggplot(df_plot, aes(x=x,y=y)) + geom_point(col=col_prod[1])+
+  geom_abline(slope = 1,col=col_prod[2])+
+  labs(title="Predicted VS Actual(removing the missing value)", 
+       y="Predict Unemployment Rate", 
+       x = "Real Unemployment Rate",
+       color=NULL) + 
+     theme(legend.position="top")
+
+
+p1<-ggplot(fit.reg, aes(.fitted, .resid))+geom_point()
+p1<-p1+stat_smooth(method="loess")+geom_hline(yintercept=0, col="red", linetype="dashed")
+p1<-p1+xlab("Fitted values")+ylab("Residuals")
+p1<-p1+ggtitle("Residual vs Fitted Plot(removing missing value)")+scale_fill_brewer( palette = 3)
+p1
+
+
+
+```
+
+```{r}
+sort(pca.fit$rotation[,'PC1'])
+```
+

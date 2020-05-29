@@ -1,0 +1,448 @@
+---
+title: "Project - data clean"
+author: "xl"
+date: "4/10/2020"
+output: html_document
+---
+
+# selecting features  form Worldbank
+[Worldbank](https://data.worldbank.org/indicator/)
+
+Target variable : Unemployment rate  in country level 
+Series code : ( 7 types Unemployment rate value)
+## unemployment rate 
+SL.UEM.TOTL.ZS         Unemployment, total (% of total labor force) (international estimate)(modeled ILO estimate)
+SL.UEM.TOTL.FE.ZS：    female 
+SL.UEM.TOTL.MA.ZS:     male
+
+
+SL.UEM.BASC.ZS         Unemployment with basic education  (% of total labor force with basic education)
+SL.UEM.INTM.ZS         Unemployment with intermediate education (% of total labor force with intermediate education)
+SL.UEM.ADVN.ZS	       Unemployment with basic education (% of total labor force with basic education)
+
+
+## population 
+SP.POP.TOTL           population 
+SM.POP.NETM	          Net migration
+
+SL.TLF.TOTL.IN	      Labor force, total number 
+SL.TLF.CACT.ZS        Labor force rate 
+SL.TLF.BASC.ZS	      Labor force with basic education (% of total working-age population with basic education)
+SL.TLF.INTM.ZS        Labor force with intermediate education (% of total working-age population with intermediate education)
+SL.TLF.ADVN.ZS        Labor force with advanced education (% of total working-age population with advanced education)
+
+SM.POP.REFG           Refugee population by country or territory of asylum
+
+## GDP
+NY.GDP.MKTP.CD	      GDP (current US$)
+NY.GDP.PCAP.CD	      GDP per capita (current US$)
+NY.GDP.MKTP.KD.ZG	    GDP growth (annual %)
+
+
+
+## Economic
+BN.CAB.XOKA.GD.ZS : 	Current account balance is the sum of net exports of goods and services, net primary income, and net secondary income. ( % of  GDP)
+NY.ADJ.NNTY.CD	      Adjusted net national income (current US$)
+BN.KLT.DINV.CD	      Foreign direct investment, net (BoP, current US$)
+NE.CON.PRVT.PC.KD	    Households and NPISHs Final consumption expenditure per capita (constant 2010 US$)
+FP.CPI.TOTL.ZG	      Inflation, consumer prices (annual %)
+PA.NUS.FCRF	          Official  exchange rate (LCU per US$, period average)
+FR.INR.LEND	          Lending interest rate (%)
+
+
+## Edu 
+SE.XPD.TOTL.GD.ZS     Government expenditure on education, total (% of GDP)
+SE.PRM.ENRL.TC.ZS	    Pupil-teacher ratio, primary	
+SE.SEC.ENRL.TC.ZS	    Pupil-teacher ratio, secondary
+SE.ADT.LITR.ZS	      Literacy rate, adult total (% of people ages 15 and above)
+SE.SEC.CMPT.LO.ZS	    Lower secondary completion rate, total (% of relevant age group)
+
+
+## Society benefit:
+Per_allsp.cov_pop_tot        Coverage of social protection and labor programs (% of population)
+Per_si_allsi.cov_pop_tot     Coverage of social insurance programs (% of population)
+per_lm_alllm.cov_pop_tot     Coverage of unemployment benefits and ALMP (% of population)	
+SL.EMP.WORK.ZS	             Wage and salaried workers, total (% of total employed)
+
+
+
+## Enviroment :
+EN.POP.DNST	                 Population density (people per sq. km of land area)
+SP.URB.TOTL.IN.ZS	           Urban population (% of total)
+EG.USE.PCAP.KG.OE	           Energy use (kg of oil equivalent per capita
+
+## Health
+SH.XPD.CHEX.PC.CD            Current health expenditure per capita (current US$)
+
+## poverty
+GB.XPD.RSDV.GD.ZS	           Research and development expenditure (% of GDP)	
+SI.POV.GINI	                 GINI index (World Bank estimate)
+SI.POV.NAGP	                 Poverty gap at national poverty lines (%)
+SI.POV.NAHC	                 Poverty headcount ratio at national poverty lines (% of population)
+
+## Infrastructure
+IQ.WEF.PORT.XQ               Quality of port infrastructure  WEF (1=extremely underdeveloped to 7=well developed and efficient by international standards)
+
+Download the data from  [Worldbank](https://data.worldbank.org/indicator/)
+
+
+```{r eval=FALSE, include=FALSE}
+ 
+# Features variables:
+# Economic freedom index 	
+# https://www.kaggle.com/gsutters/economic-freedom
+# https://www.kaggle.com/lewisduncan93/the-economic-freedom-index (2019)
+# Happiness 
+# https://www.kaggle.com/PromptCloudHQ/world-happiness-report-2019
+# Other variables:  [list Series code here]
+# https://www.kaggle.com/worldbank/world-development-indicators
+# 
+# 
+
+
+#series = read.csv('Indicators_Data.csv')
+# colnames(series)
+# unique(series$Topic)
+# 
+# series[grepl("integrity", series[["freedom"]]),]
+# 
+# 
+# series[grepl(paste('EM', collapse = "|"), series[["SeriesCode"]]),][c('SeriesCode','IndicatorName','LongDefinition','Periodicity')]
+# 
+# series[grepl(paste('salar', collapse = "|"), series[["IndicatorName"]]),][c('SeriesCode','IndicatorName','LongDefinition','Periodicity')]
+# 
+# series[grepl(paste('Education', collapse = "|"), series[["Topic"]]),][c('SeriesCode','IndicatorName','LongDefinition','Periodicity')]
+# 
+# colnames(df5)
+
+```
+
+## load data from world bank
+```{r}
+# Load the workbank data
+df = read.csv('Indicators_Data.csv') 
+colnames(df)
+dim(df)
+```
+### reformat data
+```{r include=FALSE}
+# rename the dataset
+colnames(df)[5:9] <- c(2014,2015,2016,2017,2018)
+colnames(df)
+# check the basic info of data 
+unique(df$Country.Code)
+festures = unique(df$Series.Name)
+df = df[df$Series.Name!=festures[44],]
+head(df)
+```
+
+
+
+```{r}
+# create the df for reformat data
+
+# create year col
+year = sort(rep(c(2014,2015,2016,2017,2018),length(unique(df$Country.Code))))
+
+# create empyt df
+df2 = as.data.frame(matrix(,length(year),length(unique(df$Series.Code))))
+
+# get country name and country code
+country_name_list = as.character(unique(unlist(df$Country.Name)))
+country_code_list = as.character(unique(unlist(df$Country.Code)))
+country = rep(country_name_list,5)
+country.code = rep(country_code_list,5)
+
+# add country name and country code to empty df
+df2 = cbind(country.name = country,country.code= country.code , year = year, df2)
+df2
+# change data type
+colnames(df2)[4:46]  =  as.character(unique(unlist(df$Series.Code)))
+
+
+head(df2)
+dim(df2)
+#unique(df2$country.name)
+```
+
+```{r message=FALSE, warning=FALSE}
+
+# fill the data into empty df 
+options(digits=10)
+
+#df2[df2['country.code']=='AFG' & df2['year']=='2014', 'SL.UEM.TOTL.ZS']  = as.numeric(as.character(df[df['Country.Code']=='AFG' & df['Series.Code']=='SL.UEM.TOTL.ZS','2014']))
+#as.numeric(as.character(df[df['Country.Code']== ctry & df['Series.Code']==code,yr]))
+#as.numeric(as.character(df[df['Country.Code']=="ZWE" & df['Series.Code']=="IQ.WEF.PORT.XQ",'2018']))
+
+#df2
+i = 0
+
+# fill data based on year
+for (yr in as.character(unique(df2$year))){
+  # fill data based on country names
+  for( ctry in as.character(unique(df2$country.code))){
+    # fill data based on features code names
+    for ( code in  as.character(unique(unlist(df$Series.Code)))  ){
+      
+      df1_loc = as.numeric(as.character(df[df['Country.Code']==ctry & df['Series.Code']==code,yr]))
+      df2[df2['country.code']==ctry & df2['year']==yr, code] = df1_loc
+      
+    }
+  }
+}
+
+
+head(df2)
+```
+
+
+### missing values 
+1. filter out the the columns that contains too many missing values
+2. remove the countries  without unemployment rate
+```{r}
+# check missing value % 
+table(is.na.data.frame(df2))[2]/sum(table(is.na.data.frame(df2)))
+dim(df2)
+#write.csv(df2,"clean_df.csv", row.names = FALSE) # backupp data
+```
+```{r}
+#  remove the country without unemployment rate
+df3 = df2[!is.na(df2$SL.UEM.TOTL.ZS),]
+
+df_backup = df3
+
+# remove the col with more than 50% empty value
+for (i in colnames(df3)){
+  if (mean(is.na(df3[i])) > 0.5 &  mean(is.na(df3[i])) < 1){
+  df3[i] = NULL
+    }
+}
+
+# check missing value % 
+table(is.na.data.frame(df3))[2]/sum(table(is.na.data.frame(df3)))
+
+```
+
+
+## load data from ec bank
+
+### Unified the country name in both dataset
+```{r}
+ec = read.csv('ec_freedom_data.csv')
+ec$Name <- as.character(ec$Name)
+# remove space after strings 
+ec$Name = stringr::str_trim(as.character(ec$Name),'right')
+
+ec$Name[ec$Name == 'Democratic Republic of Congo'] = 'Congo, Dem. Rep.'
+ec$Name[ec$Name == 'Republic of Congo'] = 'Congo, Rep.'
+
+ec$Name[ec$Name == 'The Gambia'] = 'Gambia'
+ec$Name[ec$Name == 'Hong Kong'] = 'Hong Kong SAR, China'
+ec$Name[ec$Name == 'Macau'] = 'Macao SAR, China'
+ec$Name[ec$Name == 'Burma'] = 'Myanmar'
+
+ec$Name[ec$Name == 'Saint Lucia'] = 'St. Lucia'
+ec$Name[ec$Name == 'Saint Vincent and the Grenadines'] = 'St. Vincent and the Grenadines'
+
+ec$Name[ec$Name == 'São Tomé and Príncipe'] = 'Sao Tome and Principe'
+
+ec$Name[ec$Name == 'Micronesia'] = 'Egypt, Arab Rep.'
+ec$Name[ec$Name == 'Egypt'] = 'Egypt, Arab Rep.'
+#unique(ec$Name)
+```
+
+
+```{r}
+#df4 = df_backup
+df4 = df3 
+df4$country.name <- as.character(df4$country.name)
+#str(df4)
+
+df4$country.name[df4$country.name == 'Korea, Dem. People’s Rep.'] = 'North Korea'
+df4$country.name[df4$country.name == 'Korea, Rep.'] = 'South Korea'
+df4$country.name[df4$country.name == 'Iran, Islamic Rep.'] = 'Iran'
+df4$country.name[df4$country.name == 'Egypt, Arab Rep.'] = 'Egypt'
+df4$country.name[df4$country.name == 'Gambia, The'] = 'Gambia'
+df4$country.name[df4$country.name == 'Russian Federation'] = 'Russia'
+#df4[grepl(paste('Micronesia', collapse = "|"), df4[["country.name"]]),]
+df4$country.name[df4$country.name == 'Slovak Republic'] = 'Slovakia'
+df4$country.name[df4$country.name == 'Syrian Arab Republic'] = 'Syria'
+df4$country.name[df4$country.name == 'Bahamas, The'] = 'Bahamas'
+df4$country.name[df4$country.name == 'Venezuela, RB'] = 'Venezuela'
+df4$country.name[df4$country.name == 'Yemen, Rep.'] = 'Yemen'
+#unique(df4$country.name )
+#length(which(df=='..'))
+```
+
+
+
+## Merge data
+
+```{r}
+ec$Name <- as.factor(ec$Name)
+df4$country.name <- as.factor(df4$country.name)
+colnames(ec)[1:2] <- c("country.name","year")
+# str(ec)
+# str(df4)
+
+df_merge = merge(df4, ec, by=c("country.name","year"))
+df_merge[df_merge=='N/A']=NA
+
+
+
+table(is.na.data.frame(df_merge))
+
+# missing value rate
+table(is.na.data.frame(df_merge))[2]/sum(table(is.na.data.frame(df_merge)))
+
+dim(df_merge)
+dim(df_merge)[1]/5
+#write.csv(df.temp,"df.temp .csv", row.names = FALSE)
+
+```
+
+### missing values again
+3.  Remvoe the country that contain more than 70% missing values in both data
+```{r}
+cot = 0
+df_merge_backup = df_merge
+
+# remove the col with more than 50% empty value 
+for (i in colnames(df_merge)){
+  if (mean(is.na(df_merge[i])) > 0.5 &  mean(is.na(df_merge[i])) < 1){
+    # print(colnames(df_merge[i]))
+    # print(mean(is.na(df_merge[i])))
+    # cot = cot+1
+    # print(cot)
+    df_merge[i] = NULL
+    }
+}
+
+# get  the country list that  contain more than 70% missing values in both data
+cot2=0
+temp_country = c()
+for (i in row.names(df_merge)){
+  if (mean(is.na(df_merge[i,])) > 0.3){
+    temp_country=c(temp_country,as.character(df_merge[i,]$country.name))
+  }
+}
+unique(temp_country)
+
+
+df_merge2 = df_merge[!df_merge$country.name %in% unique(temp_country),]
+
+dim(df_merge2)
+dim(df_merge2)[1]/5
+
+
+# compute the missing value rate 
+table(is.na.data.frame(df_merge2))[2]/sum(table(is.na.data.frame(df_merge2)))
+
+
+
+```
+
+
+```{r}
+# remove
+df_merge3 = df_merge2
+df_merge3$Overall.Score = NULL
+
+
+dim(df_merge3)
+dim(df_merge3)[1]/5
+table(is.na.data.frame(df_merge3))[2]/sum(table(is.na.data.frame(df_merge3)))
+```
+
+## write out the data
+```{r}
+write.csv(df_merge3,"clean_df_with_ec.csv", row.names = FALSE)
+```
+
+
+## create series notes for feature description
+```{r}
+# create series notes 
+ser = read.csv('Series_Data.csv')
+series_note = ser[ser$Code %in% colnames(df_merge3)[4:32],][c('Code','Indicator.Name','Long.definition','Topic')]
+
+series_note[1:4] = sapply(series_note[1:4],as.character)
+str(series_note)
+
+#https://www.heritage.org/index/book/chapter-2
+
+
+
+series_note = rbind(series_note,c("property rights","property rights","Property rights are a primary factor in the accumulation of capital for production and investment.Secure property rights give citizens the confidence to undertake entrepreneurial activity, save their income, and make long-term plans because they know that their income, savings, and property (both real and intellectual) are safe from unfair expropriation or theft.","Rule of law"))
+
+series_note = rbind(series_note,c("government integrity","government integrity","In a world characterized by social and cultural diversity, practices regarded as corrupt in one place may simply reflect traditional interactions in another. While such practices may indeed constrain an individual’s economic freedom, their impact on the economic system as a whole is likely to be modest. Of far greater concern is the systemic corruption of government institutions by such practices as bribery, nepotism, cronyism, patronage, embezzlement, and graft. Though not all are crimes in every society or circumstance, these practices erode the integrity of government wherever they are practiced. By allowing some individuals or special interests to gain government benefits at the expense of others, they are grossly incompatible with the principles of fair and equal treatment that are essential ingredients of an economically free society.","Rule of law"))
+
+series_note = rbind(series_note,c("tax burden","tax burden","All governments impose fiscal burdens on economic activity through taxation and borrowing. Governments that permit individuals and businesses to keep and manage a larger share of their income and wealth for their own benefit and use, however, maximize economic freedom.The higher the government’s share of income or wealth, the lower the individual’s reward for his or her economic activity and the lower the incentive to undertake work at all. Higher tax rates reduce the ability of individuals and firms to pursue their goals in the marketplace and thereby lower the level of overall private-sector activity.","Government size"))
+
+series_note = rbind(series_note,c("government spending","government spending","The cost, size, and intrusiveness of government taken together are a central economic freedom issue that is measured in the Index in a variety of ways. Government spending comes in many forms, not all of which are equally harmful to economic freedom. Some government spending (for example, to provide infrastructure, fund research, or improve human capital) may be considered investment. Government also spends on public goods, the benefits of which accrue broadly to society in ways that markets cannot price appropriately.","Government size"))
+
+series_note = rbind(series_note,c("business freedom","business freedom","An individual’s ability to establish and run an enterprise without undue interference from the state is one of the most fundamental indicators of economic freedom. Burdensome and redundant regulations are the most common barriers to the free conduct of entrepreneurial activity. By increasing the costs of production, regulations can make it difficult for entrepreneurs to succeed in the marketplace.","Regulatory efficiency.Once a business is open, government regulation may interfere with the normal decision-making or price-setting process. Interestingly, two countries with the same set of regulations can impose different regulatory burdens. If one country applies its regulations evenly and transparently, it can lower the regulatory burden by facilitating long-term business planning. If the other applies regulations inconsistently, it raises the regulatory burden by creating an unpredictable business environment"))
+
+series_note = rbind(series_note,c("labor freedom","labor freedom","The ability of individuals to find employment opportunities and work is a key component of economic freedom. By the same token, the ability of businesses to contract freely for labor and dismiss redundant workers when they are no longer needed is essential to enhancing productivity and sustaining overall economic growth.The core principle of any economically free market is voluntary exchange. That is just as true in the labor market as it is in the market for goods.","Regulatory efficiency"))
+
+series_note = rbind(series_note,c("monetary freedom","monetary freedom","Monetary freedom requires a stable currency and market-determined prices. Whether acting as entrepreneurs or as consumers, economically free people need a steady and reliable currency as a medium of exchange, unit of account, and store of value. Without monetary freedom, it is difficult to create long-term value or amass capital.The value of a country’s currency can be influenced significantly by the monetary policy of its government. With a monetary policy that endeavors to fight inflation, maintain price stability, and preserve the nation’s wealth, people can rely on market prices for the foreseeable future. Investments, savings, and other longer-term plans can be made more confidently. An inflationary policy, by contrast, confiscates wealth like an invisible tax and distorts prices, misallocates resources, and raises the cost of doing business.","Regulatory efficiency"))
+
+series_note = rbind(series_note,c("trade freedom","trade freedom","Many governments place restrictions on their citizens’ ability to interact freely as buyers or sellers in the international marketplace. Trade restrictions can manifest themselves in the form of tariffs, export taxes, trade quotas, or outright trade bans. However, trade restrictions also appear in more subtle ways, particularly in the form of regulatory barriers related to health or safety.The degree to which government hinders the free flow of foreign commerce has a direct bearing on the ability of individuals to pursue their economic goals and maximize their productivity and well-being. Tariffs, for example, directly increase the prices that local consumers pay for foreign imports, but they also distort production incentives for local producers, causing them to produce either a good in which they lack a comparative advantage or more of a protected good than is economically ideal. This impedes overall economic efficiency and growth.","Market openness"))
+
+series_note =rbind(series_note,c("investment freedom","investment freedom"," A free and open investment environment provides maximum entrepreneurial opportunities and incentives for expanded economic activity, greater productivity, and job creation. The benefits of such an environment flow not only to the individual companies that take the entrepreneurial risk in expectation of greater return, but also to society as a whole. An effective investment framework is characterized by transparency and equity, supporting all types of firms rather than just large or strategically important companies, and encourages rather than discourages innovation and competition.","Market openness"))
+
+series_note =rbind(series_note,c("financial freedom","financial freedom","An accessible and efficiently functioning formal financial system ensures the availability of diversified savings, credit, payment, and investment services to individuals and businesses. By expanding financing opportunities and promoting entrepreneurship, an open banking environment encourages competition in order to provide the most efficient financial intermediation between households and firms as well as between investors and entrepreneurs","Market openness"))
+
+write.csv(series_note,"series_note .csv", row.names = FALSE)
+
+
+```
+
+
+
+
+# Visulization --- world map 
+```{r}
+library(sf)
+library(rnaturalearth)
+# library(ggspatial)
+# library(cowplot)
+# library(googleway)
+# library(ggrepel)
+library(ggplot2)
+ec2 = df_merge
+
+names(ec2)[3]= 'code'
+
+map_ec_temp=ec2[ec2$year==2018,c("code","Overall.Score")]
+
+names(map_ec_temp) = c("gu_a3","value")
+map_ec_temp = map_ec_temp[!duplicated(map_ec_temp$gu_a3), ]
+# merge the data with poly spaital data
+df_map2= merge(map_ec_temp,world[c("gu_a3","geometry")])
+df_map2$value = as.numeric(df_map2$value)
+
+ggplot(data = df_map2,aes(geometry = geometry)) +
+      geom_sf(data = df_map2, aes(fill = value))+
+      scale_fill_viridis_c(trans = "sqrt", alpha = .7)+
+  labs(title="Worldmap of Overall score of Economice Freedom")
+```
+```{r}
+
+library(RColorBrewer)
+
+map_ec_temp=ec2[ec2$year==2018,c("code","SL.UEM.TOTL.ZS")]
+
+names(map_ec_temp) = c("gu_a3","value")
+map_ec_temp = map_ec_temp[!duplicated(map_ec_temp$gu_a3), ]
+# merge the data with poly spaital data
+df_map2= merge(map_ec_temp,world[c("gu_a3","geometry")])
+df_map2$value = as.numeric(df_map2$value)
+
+ggplot(data = df_map2,aes(geometry = geometry)) +
+      geom_sf(data = df_map2, aes(fill = value))+
+      scale_fill_viridis_c(trans = "sqrt", alpha = .7)+
+  labs(title="Worldmap of Total Unemployment rate")+ scale_fill_distiller(palette = "BrBG")
+```
+
+

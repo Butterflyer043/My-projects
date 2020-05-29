@@ -1,0 +1,1052 @@
+---
+title: "Unemployment_Rate"
+author: "yunfeiz"
+date: "4/30/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Part 1 - Data collection and cleaning
+```{r}
+# Source:
+# Worldbank 2014-2019 
+# Other years' data:  https://data.worldbank.org/indicator/
+# Target variable: Unemployment rate  in country level 
+# Series code : (7 types Unemployment rate value)
+# 
+# SL.UEM.TOTL.ZS         Unemployment, total (% of total labor force) (international estimate)(modeled ILO estimate)
+# SL.UEM.TOTL.FE.ZS:  female 
+# SL.UEM.TOTL.MA.ZS:     male
+# 
+# 
+# SL.UEM.BASC.ZS         Unemployment with basic education  (% of total labor force with basic education)
+# SL.UEM.INTM.ZS         Unemployment with intermediate education (% of total labor force with intermediate education)
+# SL.UEM.ADVN.ZS	       Unemployment with basic education (% of total labor force with basic education)
+# 
+# 
+# Other variables:  [list Series code here]
+# https://www.kaggle.com/worldbank/world-development-indicators
+# 
+# ### population 
+# SP.POP.TOTL           population 
+# SM.POP.NETM	          Net migration
+# 
+# SL.TLF.TOTL.IN	      Labor force, total number 
+# SL.TLF.CACT.ZS        Labor force rate 
+# SL.TLF.BASC.ZS	      Labor force with basic education (% of total working-age population with basic education)
+# SL.TLF.INTM.ZS        Labor force with intermediate education (% of total working-age population with intermediate education)
+# SL.TLF.ADVN.ZS        Labor force with advanced education (% of total working-age population with advanced education)
+# 
+# SM.POP.REFG           Refugee population by country or territory of asylum
+# 
+# ### GDP
+# NY.GDP.MKTP.CD	      GDP (current US$)
+# NY.GDP.PCAP.CD	      GDP per capita (current US$)
+# NY.GDP.MKTP.KD.ZG	    GDP growth (annual %)
+# 
+# 
+# 
+# ### Economic
+# BN.CAB.XOKA.GD.ZS : 	Current account balance is the sum of net exports of goods and services, net primary income, and net secondary income. ( % of  GDP)
+# NY.ADJ.NNTY.CD	      Adjusted net national income (current US$)
+# BN.KLT.DINV.CD	      Foreign direct investment, net (BoP, current US$)
+# NE.CON.PRVT.PC.KD	    Households and NPISHs Final consumption expenditure per capita (constant 2010 US$)
+# FP.CPI.TOTL.ZG	      Inflation, consumer prices (annual %)
+# PA.NUS.FCRF	          Official  exchange rate (LCU per US$, period average)
+# FR.INR.LEND	          Lending interest rate (%)
+# 
+# 
+# ### Edu 
+# SE.XPD.TOTL.GD.ZS     Government expenditure on education, total (% of GDP)
+# SE.PRM.ENRL.TC.ZS	    Pupil-teacher ratio, primary	
+# SE.SEC.ENRL.TC.ZS	    Pupil-teacher ratio, secondary
+# SE.ADT.LITR.ZS	      Literacy rate, adult total (% of people ages 15 and above)
+# SE.SEC.CMPT.LO.ZS	    Lower secondary completion rate, total (% of relevant age group)
+# 
+# 
+# ### Society benefit:
+# Per_allsp.cov_pop_tot        Coverage of social protection and labor programs (% of population)
+# Per_si_allsi.cov_pop_tot     Coverage of social insurance programs (% of population)
+# per_lm_alllm.cov_pop_tot     Coverage of unemployment benefits and ALMP (% of population)	
+# SL.EMP.WORK.ZS	             Wage and salaried workers, total (% of total employed)
+# 
+# 
+# 
+# ### Enviroment
+# EN.POP.DNST	                 Population density (people per sq. km of land area)
+# SP.URB.TOTL.IN.ZS	           Urban population (% of total)
+# EG.USE.PCAP.KG.OE	           Energy use (kg of oil equivalent per capita
+# 
+# ### Health
+# SH.XPD.CHEX.PC.CD            Current health expenditure per capita (current US$)
+# 
+# ### Poverty
+# GB.XPD.RSDV.GD.ZS	           Research and development expenditure (% of GDP)	
+# SI.POV.GINI	                 GINI index (World Bank estimate)
+# SI.POV.NAGP	                 Poverty gap at national poverty lines (%)
+# SI.POV.NAHC	                 Poverty headcount ratio at national poverty lines (% of population)
+# 
+# ### Infrastructure
+# IQ.WEF.PORT.XQ               Quality of port infrastructure  WEF (1=extremely underdeveloped to 7=well developed and efficient by international standards)
+# 
+# 
+# 
+# Features variables:
+# Economic freedom index 	
+# https://www.kaggle.com/gsutters/economic-freedom
+# https://www.kaggle.com/lewisduncan93/the-economic-freedom-index (2019)
+# Happiness 
+# https://www.kaggle.com/PromptCloudHQ/world-happiness-report-2019
+# Other variables:  [list Series code here]
+# https://www.kaggle.com/worldbank/world-development-indicators
+
+```
+
+
+## 1.1 Dataset#1: World Bank data
+### load data from world bank
+```{r}
+# Load the workbank data
+df = read.csv('Original_Unem_Data.csv') 
+colnames(df)
+dim(df)
+```
+
+### look at the format
+```{r include=FALSE}
+# rename the dataset
+colnames(df)[5:9] <- c(2014,2015,2016,2017,2018)
+colnames(df)
+# check the basic info of data 
+unique(df$Country.Code)
+festures = unique(df$Series.Name)
+df = df[df$Series.Name!=festures[44],]
+head(df)
+```
+
+### reformat
+```{r}
+# create the df for reformat data
+
+# create year col
+year = sort(rep(c(2014,2015,2016,2017,2018),length(unique(df$Country.Code))))
+
+# create empyt df
+df2 = as.data.frame(matrix(,length(year),length(unique(df$Series.Code))))
+
+# get country name and country code
+country_name_list = as.character(unique(unlist(df$Country.Name)))
+country_code_list = as.character(unique(unlist(df$Country.Code)))
+country = rep(country_name_list,5)
+country.code = rep(country_code_list,5)
+
+# add country name and country code to empty df
+df2 = cbind(country.name = country,country.code= country.code , year = year, df2)
+# change data type
+colnames(df2)[4:46]  =  as.character(unique(unlist(df$Series.Code)))
+```
+
+```{r message=FALSE, warning=FALSE}
+# fill the data into empty df 
+options(digits=10)
+#df2[df2['country.code']=='AFG' & df2['year']=='2014', 'SL.UEM.TOTL.ZS']  = as.numeric(as.character(df[df['Country.Code']=='AFG' & df['Series.Code']=='SL.UEM.TOTL.ZS','2014']))
+#as.numeric(as.character(df[df['Country.Code']== ctry & df['Series.Code']==code,yr]))
+#as.numeric(as.character(df[df['Country.Code']=="ZWE" & df['Series.Code']=="IQ.WEF.PORT.XQ",'2018']))
+
+i = 0
+# fill data based on year
+for (yr in as.character(unique(df2$year))){
+  # fill data based on country names
+  for( ctry in as.character(unique(df2$country.code))){
+    # fill data based on features code names
+    for ( code in  as.character(unique(unlist(df$Series.Code)))  ){
+      
+      df1_loc = as.numeric(as.character(df[df['Country.Code']==ctry & df['Series.Code']==code,yr]))
+      df2[df2['country.code']==ctry & df2['year']==yr, code] = df1_loc
+      
+    }
+  }
+}
+#head(df2)
+```
+
+### Fill missing values 
+1. filter out the the columns that contains too many missing values
+2. remove the countries  without unemployment rate
+```{r}
+# check missing value % 
+table(is.na.data.frame(df2))[2]/sum(table(is.na.data.frame(df2)))
+dim(df2)
+#write.csv(df2,"clean_df.csv", row.names = FALSE) # backupp data
+
+#  remove the country without unemployment rate
+df3 = df2[!is.na(df2$SL.UEM.TOTL.ZS),]
+
+#df_backup = df3
+
+# remove the col with more than 50% empty value
+for (i in colnames(df3)){
+  if (mean(is.na(df3[i])) > 0.5 &  mean(is.na(df3[i])) < 1){
+  df3[i] = NULL
+    }
+}
+
+# check missing value % 
+table(is.na.data.frame(df3))[2]/sum(table(is.na.data.frame(df3)))
+```
+
+### Unified the country name
+```{r}
+#df4 = df_backup
+df4 = df3 
+df4$country.name <- as.character(df4$country.name)
+#str(df4)
+
+df4$country.name[df4$country.name == 'Korea, Dem. People’s Rep.'] = 'North Korea'
+df4$country.name[df4$country.name == 'Korea, Rep.'] = 'South Korea'
+df4$country.name[df4$country.name == 'Iran, Islamic Rep.'] = 'Iran'
+df4$country.name[df4$country.name == 'Egypt, Arab Rep.'] = 'Egypt'
+df4$country.name[df4$country.name == 'Gambia, The'] = 'Gambia'
+df4$country.name[df4$country.name == 'Russian Federation'] = 'Russia'
+#df4[grepl(paste('Micronesia', collapse = "|"), df4[["country.name"]]),]
+df4$country.name[df4$country.name == 'Slovak Republic'] = 'Slovakia'
+df4$country.name[df4$country.name == 'Syrian Arab Republic'] = 'Syria'
+df4$country.name[df4$country.name == 'Bahamas, The'] = 'Bahamas'
+df4$country.name[df4$country.name == 'Venezuela, RB'] = 'Venezuela'
+df4$country.name[df4$country.name == 'Yemen, Rep.'] = 'Yemen'
+#unique(df4$country.name )
+#length(which(df=='..'))
+```
+
+
+## 1.2 Dataset#2: Econ Freedom data
+### Unified the country name 
+```{r}
+ec = read.csv('Original_Freedom_Data.csv')
+ec$Name <- as.character(ec$Name)
+# remove space after strings 
+ec$Name = stringr::str_trim(as.character(ec$Name),'right')
+
+ec$Name[ec$Name == 'Democratic Republic of Congo'] = 'Congo, Dem. Rep.'
+ec$Name[ec$Name == 'Republic of Congo'] = 'Congo, Rep.'
+
+ec$Name[ec$Name == 'The Gambia'] = 'Gambia'
+ec$Name[ec$Name == 'Hong Kong'] = 'Hong Kong SAR, China'
+ec$Name[ec$Name == 'Macau'] = 'Macao SAR, China'
+ec$Name[ec$Name == 'Burma'] = 'Myanmar'
+
+ec$Name[ec$Name == 'Saint Lucia'] = 'St. Lucia'
+ec$Name[ec$Name == 'Saint Vincent and the Grenadines'] = 'St. Vincent and the Grenadines'
+
+ec$Name[ec$Name == 'São Tomé and Príncipe'] = 'Sao Tome and Principe'
+
+ec$Name[ec$Name == 'Micronesia'] = 'Egypt, Arab Rep.'
+ec$Name[ec$Name == 'Egypt'] = 'Egypt, Arab Rep.'
+#unique(ec$Name)
+```
+
+## 1.3 Merge 2 datasets
+```{r}
+ec$Name <- as.factor(ec$Name)
+df4$country.name <- as.factor(df4$country.name)
+colnames(ec)[1:2] <- c("country.name","year")
+# str(ec)
+# str(df4)
+
+df_merge = merge(df4, ec, by=c("country.name","year"))
+df_merge[df_merge=='N/A']=NA
+
+
+
+table(is.na.data.frame(df_merge))
+
+# missing value rate
+table(is.na.data.frame(df_merge))[2]/sum(table(is.na.data.frame(df_merge)))
+
+#look at the merged dataset
+dim(df_merge)
+#number of countries
+dim(df_merge)[1]/5
+#write.csv(df.temp,"df.temp .csv", row.names = FALSE)
+
+```
+
+### further manipulation to missing values
+### Remvoe the country that contain more than 70% missing values in both data
+```{r}
+#cot = 0
+#df_merge_backup = df_merge
+
+# remove the col with more than 50% empty value 
+for (i in colnames(df_merge)){
+  if (mean(is.na(df_merge[i])) > 0.5 &  mean(is.na(df_merge[i])) < 1){
+    # print(colnames(df_merge[i]))
+    # print(mean(is.na(df_merge[i])))
+    # cot = cot+1
+    # print(cot)
+    df_merge[i] = NULL
+    }
+}
+
+# get  the country list that  contain more than 70% missing values in both data
+cot2=0
+temp_country = c()
+for (i in row.names(df_merge)){
+  if (mean(is.na(df_merge[i,])) > 0.3){
+    temp_country=c(temp_country,as.character(df_merge[i,]$country.name))
+  }
+}
+unique(temp_country)
+
+
+df_merge2 = df_merge[!df_merge$country.name %in% unique(temp_country),]
+
+#look at the merged dataset
+dim(df_merge2)
+#number of countries
+dim(df_merge2)[1]/5
+
+# compute the missing value rate 
+table(is.na.data.frame(df_merge2))[2]/sum(table(is.na.data.frame(df_merge2)))
+```
+
+### Remove Overall.Score from the dataset as it's calculated from the other freedom features
+```{r}
+df_merge3 = df_merge2
+df_merge3$Overall.Score = NULL
+
+#look at the merged dataset
+dim(df_merge3)
+#number of countries
+dim(df_merge3)[1]/5
+# compute the missing value rate 
+missing_value = table(is.na.data.frame(df_merge3))[2]/sum(table(is.na.data.frame(df_merge3)))
+
+cat("In our final dataset, the missing value rate is",missing_value)
+
+## output the data
+write.csv(df_merge3,"clean_df_with_ec.csv", row.names = FALSE)
+```
+## 1.4 Data preprocessing
+### One-hot encode
+```{r}
+library(caret)
+df = read.csv("clean_df_with_ec.csv")
+#df = df_merge3
+# one hot encode 'year'
+# convert the data type to character
+df$year <- sapply(df$year, as.character)
+
+# dummy code
+dummy <- dummyVars("~ year", data=df)
+onehot <- data.frame(predict(dummy, newdata = df)) 
+df<-cbind(df,onehot)
+write.csv(df,"onehot_cleaned.csv")
+```
+
+### Create another dataset without NA for those algorithms can't handle missing value
+```{r}
+library(tidyverse)
+library(dplyr)
+### combine add country income and region group info to data
+#dat <- read.csv("onehot_cleaned.csv")
+dat<-df
+country <- read.csv("country_extra_info.csv")
+groups <- country[c("CountryCode", "Region", "IncomeGroup")]
+names(groups)[1] = "country.code"
+full <- left_join(dat, groups, by = "country.code")
+
+### Remove missing values
+
+## get names of columns with too many NA
+na_counts <- sapply(full, function(x) sum(is.na(x)))
+na_50 <- na_counts>50
+na_50
+
+remove_cols <- c("SM.POP.NETM", "NY.ADJ.NNTY.CD", "NE.CON.PRVT.PC.KD","PA.NUS.FCRF", "FR.INR.LEND", "SE.XPD.TOTL.GD.ZS", "SE.SEC.NENR.FE", "SE.PRM.ENRL.TC.ZS", "SE.SEC.ENRL.TC.ZS", "SE.SEC.CMPT.LO.ZS", "per_lm_alllm.cov_pop_tot", "SH.XPD.CHEX.PC.CD", "IQ.WEF.PORT.XQ", "Judicial.Effectiveness", "Fiscal.Health", "SM.POP.REFG", "BN.CAB.XOKA.GD.ZS", "BN.KLT.DINV.CD", "FP.CPI.TOTL.ZG", "SI.POV.NAGP")
+
+## drop columns with over 50 missing values - remain 33 columns
+nonNA <- full[, !names(full) %in% remove_cols]
+
+## drop rows with missing values - remain 802 rows
+nonNA <- drop_na(nonNA)
+
+## write to a new datafile
+write.csv(nonNA, "nonNA.csv")
+```
+
+### One-hot encode the dataset without NA
+```{r}
+#df_n = read.csv("nonNA.csv")
+df_n = nonNA
+# dummy code for Region
+dummy <- dummyVars("~ Region", data=df_n)
+onehot <- data.frame(predict(dummy, newdata = df_n)) 
+df_n<-cbind(df_n,onehot)
+
+## convert income group to numeric
+df_n[df_n[,"IncomeGroup"]=='Low income','IncomeGroupN']<-1
+df_n[df_n[,"IncomeGroup"]=='Lower middle income','IncomeGroupN']<-2
+df_n[df_n[,"IncomeGroup"]=='Upper middle income','IncomeGroupN']<-3
+df_n[df_n[,"IncomeGroup"]=='High income: nonOECD','IncomeGroupN']<-4
+df_n[df_n[,"IncomeGroup"]=='High income: OECD','IncomeGroupN']<-5
+```
+
+
+## 1.5 Create series notes for feature description
+```{r}
+# create series notes 
+ser = read.csv('Series_Data.csv')
+series_note = ser[ser$Code %in% colnames(df_merge3)[4:32],][c('Code','Indicator.Name','Long.definition','Topic')]
+
+series_note[1:4] = sapply(series_note[1:4],as.character)
+str(series_note)
+
+#https://www.heritage.org/index/book/chapter-2
+
+
+
+series_note = rbind(series_note,c("property rights","property rights","Property rights are a primary factor in the accumulation of capital for production and investment.Secure property rights give citizens the confidence to undertake entrepreneurial activity, save their income, and make long-term plans because they know that their income, savings, and property (both real and intellectual) are safe from unfair expropriation or theft.","Rule of law"))
+
+series_note = rbind(series_note,c("government integrity","government integrity","In a world characterized by social and cultural diversity, practices regarded as corrupt in one place may simply reflect traditional interactions in another. While such practices may indeed constrain an individual’s economic freedom, their impact on the economic system as a whole is likely to be modest. Of far greater concern is the systemic corruption of government institutions by such practices as bribery, nepotism, cronyism, patronage, embezzlement, and graft. Though not all are crimes in every society or circumstance, these practices erode the integrity of government wherever they are practiced. By allowing some individuals or special interests to gain government benefits at the expense of others, they are grossly incompatible with the principles of fair and equal treatment that are essential ingredients of an economically free society.","Rule of law"))
+
+series_note = rbind(series_note,c("tax burden","tax burden","All governments impose fiscal burdens on economic activity through taxation and borrowing. Governments that permit individuals and businesses to keep and manage a larger share of their income and wealth for their own benefit and use, however, maximize economic freedom.The higher the government’s share of income or wealth, the lower the individual’s reward for his or her economic activity and the lower the incentive to undertake work at all. Higher tax rates reduce the ability of individuals and firms to pursue their goals in the marketplace and thereby lower the level of overall private-sector activity.","Government size"))
+
+series_note = rbind(series_note,c("government spending","government spending","The cost, size, and intrusiveness of government taken together are a central economic freedom issue that is measured in the Index in a variety of ways. Government spending comes in many forms, not all of which are equally harmful to economic freedom. Some government spending (for example, to provide infrastructure, fund research, or improve human capital) may be considered investment. Government also spends on public goods, the benefits of which accrue broadly to society in ways that markets cannot price appropriately.","Government size"))
+
+series_note = rbind(series_note,c("business freedom","business freedom","An individual’s ability to establish and run an enterprise without undue interference from the state is one of the most fundamental indicators of economic freedom. Burdensome and redundant regulations are the most common barriers to the free conduct of entrepreneurial activity. By increasing the costs of production, regulations can make it difficult for entrepreneurs to succeed in the marketplace.","Regulatory efficiency.Once a business is open, government regulation may interfere with the normal decision-making or price-setting process. Interestingly, two countries with the same set of regulations can impose different regulatory burdens. If one country applies its regulations evenly and transparently, it can lower the regulatory burden by facilitating long-term business planning. If the other applies regulations inconsistently, it raises the regulatory burden by creating an unpredictable business environment"))
+
+series_note = rbind(series_note,c("labor freedom","labor freedom","The ability of individuals to find employment opportunities and work is a key component of economic freedom. By the same token, the ability of businesses to contract freely for labor and dismiss redundant workers when they are no longer needed is essential to enhancing productivity and sustaining overall economic growth.The core principle of any economically free market is voluntary exchange. That is just as true in the labor market as it is in the market for goods.","Regulatory efficiency"))
+
+series_note = rbind(series_note,c("monetary freedom","monetary freedom","Monetary freedom requires a stable currency and market-determined prices. Whether acting as entrepreneurs or as consumers, economically free people need a steady and reliable currency as a medium of exchange, unit of account, and store of value. Without monetary freedom, it is difficult to create long-term value or amass capital.The value of a country’s currency can be influenced significantly by the monetary policy of its government. With a monetary policy that endeavors to fight inflation, maintain price stability, and preserve the nation’s wealth, people can rely on market prices for the foreseeable future. Investments, savings, and other longer-term plans can be made more confidently. An inflationary policy, by contrast, confiscates wealth like an invisible tax and distorts prices, misallocates resources, and raises the cost of doing business.","Regulatory efficiency"))
+
+series_note = rbind(series_note,c("trade freedom","trade freedom","Many governments place restrictions on their citizens’ ability to interact freely as buyers or sellers in the international marketplace. Trade restrictions can manifest themselves in the form of tariffs, export taxes, trade quotas, or outright trade bans. However, trade restrictions also appear in more subtle ways, particularly in the form of regulatory barriers related to health or safety.The degree to which government hinders the free flow of foreign commerce has a direct bearing on the ability of individuals to pursue their economic goals and maximize their productivity and well-being. Tariffs, for example, directly increase the prices that local consumers pay for foreign imports, but they also distort production incentives for local producers, causing them to produce either a good in which they lack a comparative advantage or more of a protected good than is economically ideal. This impedes overall economic efficiency and growth.","Market openness"))
+
+series_note =rbind(series_note,c("investment freedom","investment freedom"," A free and open investment environment provides maximum entrepreneurial opportunities and incentives for expanded economic activity, greater productivity, and job creation. The benefits of such an environment flow not only to the individual companies that take the entrepreneurial risk in expectation of greater return, but also to society as a whole. An effective investment framework is characterized by transparency and equity, supporting all types of firms rather than just large or strategically important companies, and encourages rather than discourages innovation and competition.","Market openness"))
+
+series_note =rbind(series_note,c("financial freedom","financial freedom","An accessible and efficiently functioning formal financial system ensures the availability of diversified savings, credit, payment, and investment services to individuals and businesses. By expanding financing opportunities and promoting entrepreneurship, an open banking environment encourages competition in order to provide the most efficient financial intermediation between households and firms as well as between investors and entrepreneurs","Market openness"))
+
+write.csv(series_note,"series_note.csv", row.names = FALSE)
+```
+
+# Part 2 - Exploratory Analysis
+## 2.1 World Map
+### world map of Econ Freedom dataset
+```{r}
+library(sf)
+library(rnaturalearth)
+library(ggspatial)
+library(cowplot)
+library(googleway)
+library(ggrepel)
+library(ggplot2)
+world <- ne_countries(scale = "medium", returnclass = "sf")
+#ec2 = read.csv("df_merge.csv")
+ec2 = df_merge
+
+names(ec2)[3]= 'code'
+
+map_ec_temp=ec2[ec2$year==2018,c("code","Overall.Score")]
+
+names(map_ec_temp) = c("gu_a3","value")
+map_ec_temp = map_ec_temp[!duplicated(map_ec_temp$gu_a3), ]
+# merge the data with poly spaital data
+df_map2= merge(map_ec_temp,world[c("gu_a3","geometry")])
+df_map2$value = as.numeric(df_map2$value)
+
+ggplot(data = df_map2,aes(geometry = geometry)) +
+      geom_sf(data = df_map2, aes(fill = value))+
+      scale_fill_viridis_c(trans = "sqrt", alpha = .7)+
+  labs(title="Worldmap of Overall Score of Economice Freedom")
+```
+### world map of Unemployment Rate dataset
+```{r}
+library(RColorBrewer)
+
+map_ec_temp=ec2[ec2$year==2018,c("code","SL.UEM.TOTL.ZS")]
+
+names(map_ec_temp) = c("gu_a3","value")
+map_ec_temp = map_ec_temp[!duplicated(map_ec_temp$gu_a3), ]
+# merge the data with poly spaital data
+df_map2= merge(map_ec_temp,world[c("gu_a3","geometry")])
+df_map2$value = as.numeric(df_map2$value)
+
+ggplot(data = df_map2,aes(geometry = geometry)) +
+      geom_sf(data = df_map2, aes(fill = value))+
+      scale_fill_viridis_c(trans = "sqrt", alpha = .7)+
+  labs(title="Worldmap of Total Unemployment Rate")+ scale_fill_distiller(palette = "BrBG")
+```
+
+## 2.2 Scatter plot to show the relationships between variables and response
+```{r fig.height=5, fig.width=5}
+library(ggplot2)
+vis_dat <- full[4:41]
+
+## Loop over every quantitative variable and find those which show stronger correlations with the unemployment rate
+# SP.POP.TOTL         SM.POP.NETM       SL.TLF.TOTL.IN      SL.TLF.CACT.ZS   SM.POP.REFG  NY.GDP.MKTP.CD      NY.GDP.PCAP.CD
+#for (i in 1:10){
+  #plot(vis_dat$SL.UEM.TOTL.ZS~vis_dat[,i])
+#}
+
+# NY.GDP.MKTP.KD.ZG   BN.CAB.XOKA.GD.ZS   NY.ADJ.NNTY.CD      BN.KLT.DINV.CD       NE.CON.PRVT.PC.KD FP.CPI.TOTL.ZG PA.NUS.FCRF         FR.INR.LEND     SE.XPD.TOTL.GD.ZS SE.SEC.NENR.FE
+#for (i in 11:20){
+  #plot(vis_dat$SL.UEM.TOTL.ZS~vis_dat[,i])
+#}
+
+# SE.PRM.ENRL.TC.ZS   SE.SEC.ENRL.TC.ZS   SE.SEC.CMPT.LO.ZS   per_lm_alllm.cov_pop_tot  SL.EMP.WORK.ZS    EN.POP.DNST       SP.URB.TOTL.IN.ZS SH.XPD.CHEX.PC.CD  IQ.WEF.PORT.XQ  Overall.Score
+
+#for (i in 21:25){
+  #plot(vis_dat$SL.UEM.TOTL.ZS~vis_dat[,i])
+#}
+
+#for (i in 27:37){
+  #plot(vis_dat$SL.UEM.TOTL.ZS~vis_dat[,i])
+#}
+
+## select proper plots
+plot(vis_dat$SL.UEM.TOTL.ZS~vis_dat$SE.PRM.ENRL.TC.ZS)
+plot(vis_dat$SL.UEM.TOTL.ZS~vis_dat$SH.XPD.CHEX.PC.CD)
+plot(vis_dat$SL.UEM.TOTL.ZS~log(vis_dat$NY.ADJ.NNTY.CD))
+plot(vis_dat$SL.UEM.TOTL.ZS~vis_dat$NE.CON.PRVT.PC.KD)
+```
+
+## 2.3 Clustering Analysis
+```{r}
+library(tidyverse)
+library(dplyr)
+library(deldir)
+library(cluster)
+```
+
+### Data preparation
+```{r}
+cluster_data <- nonNA
+
+## normalize quantitative cols
+x <- data.matrix(cluster_data[, c(4:25)])
+x_norm <- scale(x)
+```
+
+### K-MEANS
+```{r}
+# K=5
+km.out_5=kmeans(x_norm,5)
+km_group <- km.out_5$cluster
+
+cluster_data$cluster_group <- km_group
+
+table(cluster_data$cluster_group,cluster_data$IncomeGroup)
+plot(cluster_data$SL.UEM.TOTL.ZS~cluster_data$NY.GDP.PCAP.CD, col = km_group) # GDP Per Capita
+plot(cluster_data$SL.UEM.TOTL.ZS~cluster_data$NY.GDP.MKTP.KD.ZG, col = km_group)
+plot(cluster_data$SL.UEM.TOTL.ZS~log(cluster_data$EN.POP.DNST), col = km_group)
+
+
+# # K=7
+# km.out_7=kmeans(x_norm,7)
+# km_group <- km.out_7$cluster
+# 
+# cluster_data$cluster_group <- km_group
+# 
+# table(cluster_data$cluster_group,cluster_data$IncomeGroup)
+# plot(cluster_data$SL.UEM.TOTL.ZS~cluster_data$NY.GDP.PCAP.CD, col = km_group) # GDP Per Capita
+# plot(cluster_data$SL.UEM.TOTL.ZS~cluster_data$NY.GDP.MKTP.KD.ZG, col = km_group)
+# plot(cluster_data$SL.UEM.TOTL.ZS~log(cluster_data$EN.POP.DNST), col = km_group)
+# 
+# 
+# # K=10
+# km.out_10=kmeans(x_norm,10)
+# km_group <- km.out_7$cluster
+# 
+# cluster_data$cluster_group <- km_group
+# 
+# table(cluster_data$cluster_group,cluster_data$IncomeGroup)
+# plot(cluster_data$SL.UEM.TOTL.ZS~cluster_data$NY.GDP.PCAP.CD, col = km_group) # GDP Per Capita
+# plot(cluster_data$SL.UEM.TOTL.ZS~cluster_data$NY.GDP.MKTP.KD.ZG, col = km_group)
+# plot(cluster_data$SL.UEM.TOTL.ZS~log(cluster_data$EN.POP.DNST), col = km_group)
+
+```
+
+### Hierarchical Clustering
+```{r}
+# hclust
+hclust_avg <- hclust(dist(x), method ="average")
+h_group <- cutree(hclust_avg, 10)
+table(h_group ,cluster_data$IncomeGroup)
+
+##
+plot(cluster_data$SL.UEM.TOTL.ZS~cluster_data$NY.GDP.PCAP.CD, col = h_group)
+plot(cluster_data$SL.UEM.TOTL.ZS~cluster_data$NY.GDP.MKTP.KD.ZG, col = h_group)
+plot(cluster_data$SL.UEM.TOTL.ZS~cluster_data$EN.POP.DNST, col = h_group)
+```
+
+
+
+# Part 3 Statistical Learning Models
+## 3.1 Principal Component Regression
+
+```{r}
+# library(clusterSim)
+library(ggplot2)
+library(RColorBrewer)
+library(ggpubr)
+```
+
+### Load data
+```{r}
+df=read.csv("clean_df_with_ec.csv")
+df['UEM.diff']=df$SL.UEM.TOTL.MA.ZS-df$SL.UEM.TOTL.FE.ZS
+```
+
+### Visualization of the correlation before PCA
+```{r corr matrix, fig.height=5, fig.width=5}
+df_cor = df
+res <- as.data.frame(cor(df_cor[,4:41], method="pearson", use="p"))
+# remove the na from correlation matrix
+res [,"SI.POV.NAGP"]=NULL
+res=res[row.names(res)!="SI.POV.NAGP",]
+corrplot::corrplot(as.matrix(res), method= "color", order = "hclust", tl.cex = 0.3,tl.col = "black")
+
+# format with better view
+cor_r = tibble::rownames_to_column(as.data.frame(res), var = "row")
+cor_r <- tidyr::gather(cor_r, column, cor, -1)
+# check the top 9 correlated var with unemployment rate
+cor_r2=cor_r[abs(cor_r$cor)>0.8 & abs(cor_r$cor)!=1  ,]
+print(cor_r2)
+cor_r[ with(cor_r[cor_r$row=="SL.UEM.TOTL.ZS",], order(abs(cor))),]
+```
+
+```{r message=FALSE, warning=FALSE}
+# plot the scatter plot of unemployment rate with top9 correlated 
+col_prod = rev(brewer.pal(9,"GnBu"))
+vis1 = ggplot(df,aes(y=SL.UEM.TOTL.ZS) ) +
+  geom_point(aes(x=SL.UEM.TOTL.MA.ZS), color=col_prod[1],alpha=0.7) + 
+  labs( x='', y = "Unemployment")+rremove("ylab")+rremove('xlab')
+
+vis2 = ggplot(df,aes(y=SL.UEM.TOTL.ZS) ) +
+  geom_point(aes(x=SL.UEM.TOTL.FE.ZS), color=col_prod[2],alpha=0.7) + 
+  labs( x="Unemployment, female (% of female labor force)", y = "Unemployment")+rremove("ylab")+rremove('xlab')
+
+vis3 =  ggplot(df,aes(y=SL.UEM.TOTL.ZS)) +
+  geom_point(aes( x=SL.TLF.CACT.ZS), color=col_prod[3],alpha=0.7) +  labs(
+       x="Labor force rate, total (% of total population) ", y = "Unemployment")+rremove("ylab")+rremove('xlab')
+
+vis4 =  ggplot(df,aes(y=SL.UEM.TOTL.ZS)) +
+  geom_point(aes( x=UEM.diff), color=col_prod[4],alpha=0.7) +  labs(
+       x="Difference between Male and Female Unemploymente rate", y = "Unemployment")+rremove("ylab")+rremove('xlab')
+
+vis5 =  ggplot(df,aes(y=SL.UEM.TOTL.ZS)) +
+  geom_point(aes( x=SL.EMP.WORK.ZS), color=col_prod[5],alpha=0.7) +  labs(
+       x="Wage and salaried workers, total (% of total employment)", y = "Unemployment")+rremove("ylab")+rremove('xlab')
+
+vis6 =  ggplot(df,aes(y=SL.UEM.TOTL.ZS)) +
+  geom_point(aes( x=SE.PRM.ENRL.TC.ZS), color=col_prod[7],alpha=0.7) +  labs(
+       x="Pupil-teacher ratio, primary", y = "Unemployment")+rremove("ylab")+rremove('xlab')
+
+vis7 =  ggplot(df,aes(y=SL.UEM.TOTL.ZS)) +
+  geom_point(aes( x=Government.Spending), color=col_prod[6],alpha=0.7) +rremove('xlab')+rremove("ylab")
+
+
+vis8 =  ggplot(df,aes(y=SL.UEM.TOTL.ZS)) +
+  geom_point(aes( x=NY.GDP.MKTP.KD.ZG), color=col_prod[8]) +rremove("ylab")+rremove('xlab')
+
+
+vis9 =  ggplot(df,aes(y=SL.UEM.TOTL.ZS)) +
+  geom_point(aes( x=Business.Freedom), color=col_prod[9]) +rremove("ylab")+rremove('xlab')
+
+
+
+ggarrange(vis1, vis2,vis3,vis4,vis5,vis7,vis6,vis8,vis9, ncol = 3, nrow = 3, legend = "none" ,
+labels = c("Unemployment, male \n(% of male labor force)", "Unemployment, female \n(% of female labor force)","Labor force rate, total \n(% of total population)","Difference between Male and \nFemale Unemploymente rate","Wage and salaried workers, \ntotal (% of total employment)","Government Spending","Pupil-teacher ratio, primary","GDP growth (annual %)","Business.Freedom"),font.label = list(size = 8, face = "bold"))
+
+
+```
+
+### Method #1: Fill the missing value and scale the data
+Reference:
+https://rpubs.com/esobolewska/pcr-step-by-step
+http://pbil.univ-lyon1.fr/members/dray/files/articles/dray2015a.pdf
+```{r fill_na set_up}
+# read and scale data
+df=read.csv("onehot_cleaned.csv")
+df$X = NULL
+
+#df = dfback 
+df$SI.POV.NAGP=NULL
+df['UEM.diff']=df$SL.UEM.TOTL.MA.ZS-df$SL.UEM.TOTL.FE.ZS
+df_scale = data.frame(scale(df[,c(4,7:39,45)]))
+names(df_scale)[1] = 'y'
+df_scale['y_unscaled'] = df$SL.UEM.TOTL.ZS
+df_scale['year'] = df$year
+
+```
+
+Dealing with missing value for PCA
+```{r fill}
+set.seed(101)
+library(missMDA)
+
+# estimate number of components
+nb <- estim_ncpPCA(df_scale[1:35],ncp.max=6,method = c("Regularized"))
+# actual impute
+x.impute <- imputePCA(df_scale[1:35],nb$ncp)
+x_imp = as.data.frame(x.impute)
+x_imp["year"]=df_scale['year']
+x_imp["y_unscaled"]=df_scale['y_unscaled']
+names(x_imp)[1]='y'
+
+row.18 = which(x_imp$year == 2018)
+x.18=x_imp[row.18,]
+x.yr=x_imp[-row.18,]
+#final dim of imptation missing value of data
+dim(x_imp)
+#[1] 825  72 
+# variable: 2:35
+# final dim for fill data is (825,35)
+```
+
+PCR
+```{r}
+# fit pca with completeObs
+pca.fit = prcomp(x.yr[,c(2:35)])
+summary(pca.fit)
+# plot the Cumulative Proportion to choose the number of pc
+plot(summary(pca.fit)$importance[3,],ylab='Cumulative Proportion',xlab='PC#')
+points(21,summary(pca.fit)$importance[3,][21],pch=2,cex=2,col='red')
+abline(h=0.95,col='deepskyblue1',lty=1)
+text(21,0.9,'(pc21,0.95)',col='red',cex=1)
+
+ols.data <- cbind(x.yr$y, as.data.frame(pca.fit$x[,1:21]))
+names(ols.data)[1]='y'
+fit.reg <- lm(y~ ., data = ols.data)
+summary(fit.reg)
+#Multiple R-squared:  0.401,
+
+# get pca test
+pca.test = predict(pca.fit,newdata=x.18[,c(2:35)])
+ols.data2 = cbind(x.18$y, as.data.frame(pca.test[,1:21]))
+# get regression test
+test.pred = predict(fit.reg, newdata = ols.data2)
+train.pred = predict(fit.reg, newdata = ols.data)
+
+rmse.test = mean((x.18$y-test.pred)^2)
+rmse.train = mean((x.yr$y-train.pred)^2)  
+cat("rmse.test = ",rmse.test)
+cat("rmse.train = ",rmse.train)
+#rmse.test =  0.5620509
+#rmse.train =  0.6186431
+
+# plot the correlation matrix again
+res1 <- cor(pca.fit$x, method="pearson")
+corrplot::corrplot(res1, method= "color", order = "hclust", tl.cex = 0.3,tl.col = "black")
+```
+
+Plot the results
+```{r}
+col_prod = brewer.pal(12,"Paired")
+# plot the resid analysis
+p1<-ggplot(fit.reg, aes(.fitted, .resid))+geom_point()
+p1<-p1+stat_smooth(method="loess")+geom_hline(yintercept=0, col="red", linetype="dashed")
+p1<-p1+xlab("Fitted values")+ylab("Residuals")
+p1<-p1+ggtitle("Residual vs Fitted Plot(replacing the missing value)")+scale_fill_brewer( palette = 3)
+p1
+
+hist(residuals(fit.reg),main='Histogram of residuals (replacing the missing value)')
+grid()
+hist(residuals(fit.reg), add = TRUE, col = 'white',main='Histogram of residuals(replacing the missing value)')
+
+
+#### plot prediction  with orginal value of y
+ols.data <- cbind(x.yr$y_unscaled, as.data.frame(pca.fit$x[,1:22]))
+names(ols.data)[1]='y_unscaled'
+fit.reg <- lm(y_unscaled~ ., data = ols.data)
+summary(fit.reg)
+
+pca.test = predict(pca.fit,newdata=x.18[,c(2:40)])
+ols.data2 = cbind(x.18$y_unscaled, as.data.frame(pca.test[,1:22]))
+test.pred = predict(fit.reg, newdata = ols.data2)
+train.pred = predict(fit.reg, newdata = ols.data)
+
+rmse.test = mean((x.18$y_unscaled-test.pred)^2)
+rmse.train = mean((x.yr$y_unscaled-train.pred)^2)  
+cat("rmse.test = ",rmse.test)
+cat("rmse.train = ",rmse.train)
+#rmse.test =  17.89699
+#rmse.train =  19.80474
+
+
+col_prod = brewer.pal(12,"Paired")
+melt_pred1 = reshape2::melt(data.frame(Actual=x.18$y_unscaled,Prediction=test.pred,x=1:165),"x")
+ggplot(melt_pred1, aes(x=x)) + 
+  geom_line(aes(y=value,col=variable)) + 
+  labs(title="Predicted VS Actual(replacing the missing value)", 
+       y="Unemployment Rate", 
+       x = "Country Index",
+       color=NULL) +  # title 
+scale_fill_brewer( palette = 3) +
+     theme(legend.position="top")
+
+```
+
+
+
+### Method #2: Use the dataset without any missing value
+```{r}
+df_na = read.csv("nonNA.csv")
+df_na$X = NULL
+df_na['UEM.diff']=df_na$SL.UEM.TOTL.MA.ZS-df_na$SL.UEM.TOTL.FE.ZS
+df_na_scale = data.frame(scale(df_na[,c(4,7:25,33)]))
+names(df_na_scale)[1] = 'y'
+df_na_scale['y_unscaled'] = df_na$SL.UEM.TOTL.ZS
+df_na_scale['year'] = df_na$year
+
+row.18 = which(df_na_scale$year == 2018)
+
+x.18=df_na_scale[row.18,]
+x.yr=df_na_scale[-row.18,]
+dim(df_na_scale)
+#dim of remove: 
+# variable 2:21
+```
+Residuals analysis
+```{r}
+set.seed(101)
+
+# fit pca with completeObs
+pca.fit = prcomp(x.yr[,c(2:21)])
+summary(pca.fit)
+# select the pca that explained 95% variable
+plot(summary(pca.fit)$importance[3,],ylab='Cumulative Proportion',xlab='PC#')
+points(14,summary(pca.fit)$importance[3,][14],pch=2,cex=2,col='red')
+abline(h=0.95,col='deepskyblue1',lty=1)
+text(14,0.9,'(pc14,0.95)',col='red',cex=1)
+
+ols.data <- cbind(x.yr$y, as.data.frame(pca.fit$x[,1:14]))
+names(ols.data)[1]='y'
+fit.reg <- lm(y~ ., data = ols.data)
+summary(fit.reg)
+
+hist(residuals(fit.reg),main="Histogram of residuals (removing the missing value)",)
+grid()
+hist(residuals(fit.reg), add = TRUE, col = 'white',main='Histogram of residuals')
+
+pca.test = predict(pca.fit,newdata=x.18[,c(2:21)])
+ols.data2 = cbind(x.18$y, as.data.frame(pca.test[,1:14]))
+test.pred = predict(fit.reg, newdata = ols.data2)
+train.pred = predict(fit.reg, newdata = ols.data)
+
+rmse.test = mean((x.18$y-test.pred)^2)
+#0.6027348
+rmse.train = mean((x.yr$y-train.pred)^2)  
+#0.6545855
+cat("rmse.test = ",rmse.test)
+cat("rmse.train = ",rmse.train)
+
+### ploting with unscaled data
+ols.data <- cbind(x.yr$y_unscaled, as.data.frame(pca.fit$x[,1:14]))
+names(ols.data)[1]='y_unscaled'
+fit.reg <- lm(y_unscaled~ ., data = ols.data)
+#summary(fit.reg)
+
+pca.test = predict(pca.fit,newdata=x.18[,c(2:21)])
+ols.data2 = cbind(x.18$y_unscaled, as.data.frame(pca.test[,1:14]))
+test.pred = predict(fit.reg, newdata = ols.data2)
+train.pred = predict(fit.reg, newdata = ols.data)
+
+
+col_prod = brewer.pal(12,"Paired")
+melt_pred1 = reshape2::melt(data.frame(Actual=x.18$y_unscaled,Prediction=test.pred,x=1:161),"x")
+ggplot(melt_pred1, aes(x=x)) + 
+  geom_line(aes(y=value,col=variable)) + 
+  labs(title="Predicted VS Actual(removing missing value)", 
+       y="Unemployment Rate", 
+       x = "Country Index",
+       color=NULL) +  # title 
+scale_fill_brewer( palette = 3) +
+     theme(legend.position="top")
+
+
+p1<-ggplot(fit.reg, aes(.fitted, .resid))+geom_point()
+p1<-p1+stat_smooth(method="loess")+geom_hline(yintercept=0, col="red", linetype="dashed")
+p1<-p1+xlab("Fitted values")+ylab("Residuals")
+p1<-p1+ggtitle("Residual vs Fitted Plot(removing missing value)")+scale_fill_brewer( palette = 3)
+p1
+print("Method 1 (filling NAs) got a better result than method 2 (removing all the NAs).")
+```
+
+
+## 3.2 Random Forests
+### Data preparation
+```{r}
+df<-df_n
+# rename the response
+colnames(df)[4] = 'unem_rate'
+
+# feature engineering
+
+# new feature: difference in unemployment rate between male and female
+df$diff = df$SL.UEM.TOTL.MA.ZS-df$SL.UEM.TOTL.FE.ZS
+
+# drop country and male & female unemployment rate
+df <- subset(df, select = -c(1,2,3,5,6,IncomeGroup,Region))
+
+# reorder columns
+df<- subset(df, select=c(1,ncol(df),(ncol(df)-1),(4:ncol(df)-2)))
+# scale
+df[,1:(ncol(df)-12)]<- scale(df[,1:(ncol(df)-12)])
+```
+
+### Build a single tree and illustrate it 
+```{r}
+library(tree)
+set.seed(101)
+training = sample(1:nrow(df), 0.75*nrow(df))
+train = df[training,]
+test = df[-training,]
+mytree = tree(unem_rate~., data=train)
+summary(mytree)
+
+# cross validation
+mytree2 = cv.tree(mytree,FUN = prune.tree)
+mytree2
+plot(mytree2$size,mytree2$dev, xlab="size", ylab="dev",type = 'b')
+cat("The best size is 9, as it has a drop in dev between 8 and 9.\n")
+
+mytree3 = prune.tree(mytree,best= 9)
+names(mytree3)
+plot(mytree3)
+text(mytree3,pretty = 2)
+```
+
+### Random Forests
+```{r}
+library(randomForest)
+#df <- rfImpute(unem_rate ~ ., df,iter=5)
+#df=df[sample(nrow(df)),]
+set.seed(101)
+#df<-df[,-2]
+
+#Create 10 equally size folds
+folds <- cut(seq(1,nrow(df)),breaks=10,labels=FALSE)
+#Perform 10 fold cross validation
+rmse_df = data.frame()
+m = c(18,12,9,6)
+n = c(50,100,150,200)
+for(j in 1:3){
+  cat("j =",j,'\n')
+  for(k in 1:4){
+    cat("k =",k,'\n')
+    for(i in 1:10){
+      testIndexes <- which(folds==i,arr.ind=TRUE)
+      X.test <- df[testIndexes, -1]
+      X.train <- df[-testIndexes, -1]
+    
+      y.test <- df[testIndexes, 1]
+      y.train <- df[-testIndexes, 1]
+
+      rf=randomForest(x = X.train,y = y.train,xtest = X.test, ytest = y.test,mtry=m[j],ntree = n[k])
+      rmse_df[i,'rmse']=sqrt(mean(rf$test$mse))
+      #print(cor(rf.concrete$test$predicted,y.test))
+    }
+    cat("The estimated rmse based on 10-fold cv is:",mean(rmse_df$rmse),'\n')
+  }
+}
+
+print("The model with ntree = 200 and m = 6 has the best rmse, 10-fold rmse = 0.71.")
+# feature importance
+varImpPlot(rf)
+```
+
+## 3.3 Lasso selection + GBM
+### Data preparation
+```{r}
+# Loaging the library
+library(glmnet)
+
+unemployment_rate <- nonNA
+
+
+#ncol(unemployment_rate)
+
+# Clean data and delete categorical variables
+unemployment_rate = subset(unemployment_rate, select = -c(country.name, year, country.code, 
+                                                          SL.UEM.TOTL.FE.ZS, SL.UEM.TOTL.MA.ZS,
+                                                          year2014, year2015, year2016, 
+                                                          year2017, year2018, Region, IncomeGroup
+                                                          ))
+# Scale dataset
+unemployment_rate = scale(unemployment_rate)
+
+# Save dataset as dataframe
+unemployment_rate = as.data.frame(unemployment_rate)
+
+# Get summary of updated data
+#summary(unemployment_rate)
+```
+
+### Use LASSO to select variables
+```{r}
+# Prepare variables to run LASSO feature selection
+x_vars <- model.matrix(SL.UEM.TOTL.ZS~., data = unemployment_rate)[,-1]
+
+y_var <- unemployment_rate$SL.UEM.TOTL.ZS
+
+fit.lasso=glmnet(x_vars,y_var)
+plot(fit.lasso, xvar="lambda", label=TRUE)
+
+lambda_seq <- 10^seq(2, -2, by = -.1)
+
+# Splitting the data into test and train
+set.seed(8470)
+train = sample(1:nrow(x_vars), nrow(x_vars)/2)
+test = (-train)
+y_test = y_var[test]
+
+cv_output <- cv.glmnet(x_vars[train,], y_var[train],
+            alpha = 1, lambda = lambda_seq)
+
+# identifying best lamda
+best_lam <- cv_output$lambda.min
+
+lasso_best <- glmnet(x_vars[train,], y_var[train], alpha = 1, lambda = best_lam)
+
+# getting the list of important variables
+coef(lasso_best) # Lists out coeffieicnts for each lambda
+
+# The model indicates that the coefficients of SL.TLF.TOTL.IN (Labor force total) have been shriked to zero. Thus we are left with 20 variables;
+```
+
+### Build the statistical learning model using Gradient Boosting Machine
+```{r}
+# Load gbm library
+library(gbm)
+set.seed(101)
+# Run Gradient boosting tree model with selected variables
+boost.unemployment_rate <- gbm(SL.UEM.TOTL.ZS ~ .-SL.TLF.TOTL.IN, data = unemployment_rate[train,], distribution="gaussian",n.trees=5000,interaction.depth=4,shrinkage=0.1,verbose=F)
+
+summary(boost.unemployment_rate)
+par(mfrow=c(1,2))
+
+# Plot top 3 important variables
+plot(boost.unemployment_rate,i="SL.TLF.CACT.ZS")
+plot(boost.unemployment_rate,i="EN.POP.DNST")
+plot(boost.unemployment_rate,i="SL.EMP.WORK.ZS")
+
+
+# Make a prediction on the test set.
+n.tree = seq(from=100,to=5000, by=100)
+yhat.boost=predict(boost.unemployment_rate,newdata=unemployment_rate[-train,],n.trees=n.tree)
+
+dim(yhat.boost)
+berr= with(unemployment_rate[-train,],apply((yhat.boost-unemployment_rate[test, ]$SL.UEM.TOTL.ZS)^2,2,mean))
+
+# Make a plot
+plot(n.tree,berr, pch=19, ylab="Mean Squared Error", xlab ="# Trees", main ="Boosting Test Error" )
+abline(h=min(berr), col="red")
+
+# Get RSME of the model
+print("RMSE:")
+sqrt(mean((yhat.boost-unemployment_rate[test, ]$SL.UEM.TOTL.ZS)^2))
+```

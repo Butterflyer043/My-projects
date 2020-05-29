@@ -1,0 +1,1303 @@
+---
+title: "Note-512"
+output: html_document
+---
+
+# Chapter 2
+**bias**  
+
+* how far the model is from the truth ($(\hat{y}-y)^2 $)
+* given by same dataset
+* **underfitting**
+  - high bias
+  - performs better on new dataset
+
+**variance**   
+
+* estimate the varies around its average
+* given by model when datset is changed
+* **overfitting** 
+  - high variance, no error on trainning set
+  - performs better on the _training data_ than on _new_ (test, validation) data.
+  - test err is larger
+  - It occurs more often and is more severe when very _flexible models_  are used.
+
+![](./image/chp2-3.png){width=60%}   
+* In all three cases, the variance increases and the
+bias decreases as the method’s flexibility increases.
+![KNN-trade off](./image/chp2-4.png){width=60%} 
+
+
+**prediction**  
+
+* **flexible** model better
+* make a multilinear regression model more flexible
+  - Add predictors, add interaction terms, add nonlinear functions of given predictors.
+  - more flexible higher variance
+* **Prediction accuracy** 
+  - measure the quality of fit
+  
+**Inference**  
+
+* more interpretable
+  - **Interpretability** is the degree to which a human can understand the cause of a decision.
+* Y is affected as $X_1,...,X_p$ change.
+* we wish to estimate f, but our goal is not necessarily to make predictions for Y, understand the relationship between X and Y
+  - Which predictors are associated with the response?
+  _ What is the relationship between the response and each predictor?
+  - Can the relationship between Y and each predictor be adequately summarized using a linear equation, or is the relationship more complicated?
+*eg:
+  - which media contribute to sales?
+  - which media generate the biggest boost in sales? or
+  - how much increase in sales is associated with a given increase in TV advertising?
+
+
+**flexible **  
+* make a multilinear regression model more flexible
+  - Add predictors, add interaction terms, add nonlinear functions of given predictors.
+  - more flexible higher variance
+* non-restrictive models
+![](./image/chp2-1.png){width=60%}  
+
+
+# chapter 3 linear regression 
+```{r message=FALSE}
+library(ISLR)
+library(fma)
+lm.fit = lm(mpg~.-name, data=Auto)
+summary(lm.fit)
+par(mfrow=c(2,2))
+plot(lm.fit)
+```
+
+#### Accuracy of the Coefficient Estimates
+* **Standard error** of an estimator reflects how it varies under repeated sampling.
+  - $SE(\hat{\beta_1})^2 = \frac{Var(\epsilon )}{\Sigma^n_{i=1}(x_i-\bar{x})^2}$
+  - $SE(\hat{\beta_0})^2 = Var(\epsilon ) [ \frac1n+ \frac{\bar{x}^2}{\Sigma^n_{i=1}(x_i-\bar{x})^2}]$
+* **confidence intervals**
+  - 95% probability, the range will contain the true value of the parameter (here $\beta_1$).
+  - $\hat{\beta_1} \pm 2*SE(\hat{\beta_1})$
+
+
+#### residual
+* A good **residuals vs. fitted plot **
+  - relatively shapeless _without clear patterns_ in the data, no obvious outliers, and be generally symmetrically distributed around the 0 line without particularly large residuals.
+* **Normal Q-Q**
+  - close to stright line ifdependent variable is normally distributed,
+* **Scale-Location**
+  - plot shows whether our residuals are spread equally along the predictor range,
+  - we want line on this plot to be horizontal with randomly spread points on the plot.
+*  **Residuals vs. Leverage**
+  - plots helps you identify influential data points on your model. Outliers can be influential, though they don’t necessarily have to it and some points within a normal range in your model could be very influential.
+* **RSS** residual sum of squares -Estimation of the parameters
+  - $RSS=\Sigma (y_i-\hat{y_i})^2$
+  - least squares approach compute $\beta$ is to minimize the RSS
+* **RSE** residual standard error  - overall accuracy
+  - $RSE=\sqrt{\frac{RSS}{n-2}}$
+
+#### R^2
+* $R^2=1-\frac{TSS}{RSS}$
+  - $TSS=\Sigma^N_{i=1}(y_i-\bar y)^2$
+* additional predictor. Then we can conclude that this predictor significantly explains variance in the target variable.
+* FALSE. This increase always happens when predictors are added to the model.
+
+#### F - test  
+* $H_0$: There is no relationship between X and Y ($\beta_1=0$)
+* $H_1$: There is some relationship between X and Y ($\beta_1\neq 0$)
+* The **F statistic** is used to test the null hypothesis that all coefficients are zero. 
+  - If it is sufficiently _large_, this is evidence that at least one of the coefficients is nonzero, that is, a linear model has some explanatory power.
+  - How large does the F-statistic need to be before we can reject:
+    + depends on the values of n and p. When n is large, an F-statistic that is just a little** larger than 1** might still provide evidence against $H_0$ 
+    + in contrast, a larger F-statistic is needed to reject H0 if n is small. 
+    + When $H_0$ is true and the errors $\epsilon_i$ have a _normal distribution_, the F-statistic follows an F-distribution
+* **p value** is _small_ enough, we can reject null hypothesis, which indicates that at least one predictor is not 0
+
+#### dummy variables
+* Suppose the categorical variable has values 1, 2, . . . , k. Introduce k − 1 dummy variables. Each dummy variable has values 0 or 1. Dummy variable j is set to 1 if the categorical variable equals j + 1, for j = 1, . . . , k − 1 and 0 otherwise. If the  categorical variable equals 1, then all dummy
+variables are set equal to 0.
+
+#### Interpreting regression coefficients
+* \a unit change in $X_J$ is associated
+with a $\beta_j$ change in $Y$ , while all the other variables stay
+fixed"
+
+#### Interactions
+* Interpretation
+  - $sales = 6.7+0.02TV+0.03radio+0.01TV*radio$
+  - result: R^2 from 89% increase to 97%
+    + $(97-89)/(100-89)=0.72$ of the variability in _sales_ that remains after fitting the additive model has been explained by the interaction term.
+  - an increase in TV advertising of $1000 is associated with
+increased sales of $0.02*1000+0.01*1000*radio=20+10$radio units.
+* **hierarchy principle**
+  - If we include an interaction in a model, we should also include the main effects, even if the p-values associated with their coefficients are not significant.
+  - If an interaction term (product or powers) of several predictors is included in a linear regression, all lower order terms (factors of the products or lower powers) involving these predictors must also be included.
+
+
+
+# Chapter 4 Classification
+#### logistics
+* function: $p(X)=\frac{e^{\beta_0+\beta_1X}}{1+e^{\beta_0+\beta_1X}}$
+* log odds = $log\left(\frac{p(X)}{1-p(x)}\right)=\beta_0+\beta_1X$
+* est odds = $e^{\beta_0+\beta_1X}$
+
+
+![](./image/chp4-1.png){width=50%}   
+* A one-unit increase in balance is associated with an increase in the **log odds** of default(y) by 0.0055 units.  
+![](./image/chp4-2.png){width=50%} 
+* prediction
+   - default probability for an individual with a balance of $1,000 is 0.005 wihch is less than 1%
+* Single logistic regression
+![](./image/chp4-4.png){width=50%}  
+* Multiple logistic regression  
+![](./image/chp4-3.png){width=50%}   
+![](./image/chp4-5.png){width=50%} 
+![](./image/chp4-6.png){width=50%}
+  - a student with a credit card balance of $1 , 500 and an income of \$40000 has an estimated probability of default is 0.058
+  -  The variables student and balance are correlated.
+
+```{r Logistics Regression}
+attach(Weekly)
+fit.glm = glm(Direction ~ Lag1 + Lag2 + Lag3 + Lag4 + Lag5 + Volume , data = Weekly, family = binomial)
+summary(fit.glm)
+resp = predict(fit.glm, type = "response")
+pred.glm = rep("Down", length(resp))
+pred.glm[resp > 0.5] = "Up"
+table(pred.glm, Direction)
+```
+
+   
+#### ROC 
+ * Explain what information about an ROC curve can be obtained from a confusion matrix.
+A confusion matrix allows one to compute the _true positive rate_ (sensitivity $\frac{TP}{TP+FN}$) and _false positive rate_ (1-specificity$\frac{TN}{TN+FP}$). This gives one point on the ROC curve and a lower bound for the area under the curve.  
+ * Lower bound = sensitivity*(1-specificity)
+ * higher **AUC** is good
+
+
+![](./image/CM.jpg){width=70%}  
+
+
+
+
+# Extra Artificial Neural Networks
+Neural Nework
+* more flexible  
+* Activation function (common)
+  - Sigmoid: $\frac1{1+e^{-x}}$
+  - linear: $y=ax+b$
+  - hyperbolic tangent: $tanh(x)$
+  - ReLU: $max(0,x)$
+  
+![](./image/NN-1.png){width=60%}
+
+![](./image/NN-2.png){width=60%}     
+
+### ANN  
+* are extremely flexible tools. -  lower bias and higher variance. 
+* An ANN with **no hidden layer** and a single output with **logistic activation function** is a logistic regression model.
+* An ANN with **one node** in a single hidden layer and a single output with **linear activation function** may also be a logistic regression model if the weights into the output node are right.  
+* run again the weight will not be same because there are many combination   
+![](./image/NN-5.png){width=250} ![](./image/NN-6.png){width=250}
+![](./image/NN-7.png){width=250}
+* Sigmoidal function
+* Back Propagation
+
+### RNN 
+* Sequence learning
+  - Modeling a corpus of text as sequence of characters, (most probable sequences of character)
+  - simulate "fake" sequence that are striking similar to real ones.
+* http://karpathy.github.io/2015/05/21/rnn-effectiveness/ 
+* eg: 模拟莎士比亚文风  
+![RNN process](./image/NN-4.png){width=80%}  
+
+### NLP
+ * Natural Language Processing
+  - is a branch of AI that helps computers to understand, interpret and manipulate human language.
+  - https://www.guru99.com/nlp-tutorial.html
+  - **Word2Vec**
+    + learn about correlations in word usage to infer quantifiable “meaning” for all words.
+    + https://papers.nips.cc/paper/5021-distributed-representations-of-words-and-phrases-and-their-compositionality.pdf
+    
+![](./image/NN-3.png){width=50%}  
+
+```{r}
+library('nnet')
+# nnet single layer
+x1 <- rnorm(100)
+x2 <- rnorm(100)
+y <- 5 +  2*x1 + -3*x2 + rnorm(100) 
+lm.fit = lm(y~x1+x2) # fit linear model
+summary(lm.fit)
+net.fit = nnet(y ~x1+x2,skip=TRUE,size=0,linout = TRUE) 
+# skip = T = no hidden layer
+# linout = T = linear output
+# linout = F = logistic output
+# trace = F = don't display the coverage steps(default = T)
+summary(net.fit)
+
+net.fit2= nnet(y ~x1+x2,size =2, decay = .001, maxit = 20, linout = T,trace = F)
+# size =2 2 neuor in hidden layer
+summary(net.fit2)
+```
+
+
+
+
+# Chapter 5 Cross-validation and the Bootstrap
+* two resampling methods
+  - get additional info about fitted model
+  - CV: get an idea of the test set err/ traing err
+  - bootstrap: useful to guarantee of the variability of standard deviation of an estimate and its bias 
+  
+### Training Error VS Test error (predition error)
+* **test error**:
+  - how well the fitted model doing in the future that has not seen
+  - mean((test_set$y - predict.lm(model, test_set)) ^ 2)
+  - or in Random forest:
+    - rf1 = randomForest(medv~.,data =train_df,xtest=subset(test_df, select=-medv), ytest=test_df$medv, ntree=500,mtry=13)
+    - rf1\$test\$mse
+
+
+* **trainng error**:
+  - apply the model to the same data
+* more overfit, lower training err, test err can be higher(blue line)
+
+
+![](/Users/butterflyer/Desktop/OneDrive - AIOS/GU/ANLY 512/image/chp5-1.png){width=50% }  
+
+
+
+* *model complexity* 
+  - liner reg: low: a few variables, high a lot variables
+  - ploynomial： low: few degree, high: higher order ploynomial
+* train err: complexity increase, prediction error decrease
+* test err: U shape: go down at first and than go up(overfit) 
+
+### Validation set approach 
+* random spliting into half and half
+* typically assessed using MSE
+  - $MSE=\frac{1}{N} \Sigma(y-\hat{y})$
+![](/Users/butterflyer/Desktop/OneDrive - AIOS/GU/ANLY 512/image/chp5-2.5.png){width=50%}  
+* drawbacks:
+  - test error can be highly variable, depending on precisely which observations are included in the which set.
+  - only trainging set obs used in build model
+  - **overestimate** because more data has the lower error
+
+Example:  
+* Want to compare linear vs higher-order polynomial terms in a linear regression
+* We randomly split the 392 observations into two sets, a training set containing 196 of the data points, and a validation set containing the remaining 196 observations.
+* left-single split & right multiple splits
+![](/Users/butterflyer/Desktop/OneDrive - AIOS/GU/ANLY 512/image/chp5-2.png){width=70%}  
+
+### K-fold Cross-Validation 
+* randomly divide the data into K equal-sized parts. 
+  - 1 part - testing 
+  - k-1 parts - training  
+* 1-5 轮流成为 validation part  
+![K=5 CV process](/Users/butterflyer/Desktop/OneDrive - AIOS/GU/ANLY 512/image/chp5-3.png){width=50%}    
+* algebra
+  - $CV_k=\frac{1}{k}\Sigma^k_{i=1}MSE_i$
+  - K parts = $C_1,C_2,C_3,\dots,C_k$
+  - $n_k$ observations in one parts, total $N$ observations
+  - $MSE=\frac{1}{N} \Sigma(y-\hat{y})$
+  - Setting $K$ yields K-fold or _**leave-one outcross-validation -LOOCV**_.
+* bias is minimized when K = n ( _LOOCV_) , but high variance,
+* usually $K =5 \text{ or } 10$
+  
+### LOOCV
+* $n$ data points is repeatedly split into a **_training_** set (shown in blue) containing all but one observation, and a **_validation_** set that contains only that observation (shown in beige).  
+* very _expensive_  
+![](/Users/butterflyer/Desktop/OneDrive - AIOS/GU/ANLY 512/image/chp5-4.png){width=50%}   
+* test dataset 只有一个obs, 每一个point轮流成为test dataset
+* algebra
+  - $CV_n=\frac{1}{n}\Sigma^n_{i=1}MSE_i$
+    + it may too expensive if n is large and model is complex
+  - A short cut:
+    + $CV_n=\frac{1}{n}\Sigma^n_{i=1}\left(\frac{y_i-\hat{y_i}}{1-h_i}\right)^2$
+    + $h_i$ is observation’s leverage (Page 98 function3.37) 
+    + leverage is a measure of how far away the independent variable values of an observation are from those of the other observations.
+    + difference outliner & high leverage (https://online.stat.psu.edu/stat462/node/170/)
+* LOOCV almost have same size of data, thus it has low bias but high variance
+
+* LOOCV vs 10-fold CV  
+![](./image/chp5-5.png){width=80%}   
+![](./image/chp5-6.png){width=80%}    
+  - blue is true test MSE 
+    + if we examine simulated data, then we can compute the true test MSE, and can thereby evaluate the accuracy of our cross-validation results.
+  - black dashed line is LOOCV estimate 
+  - orange line is 10-fold CV estimate
+  - crosses is the minimum of each of the MSE curves.
+  - two cross-validation estimates are very similar; 
+  - plot1 the CV curves have the correct general shape, but they _underestimate_ the true test MSE.
+  - plot2 the two sets of curves are similar at the lower degrees of flexibility, while the CV curves _overestimate_ the test set MSE for higher degrees of flexibility.
+  - plot3 true test MSE and the cross-validation curves are almost identical
+  
+
+### Cross-Validation for Classification Problems
+* algebra
+  - $CV_n=\frac{1}{n}\Sigma^n_{i=1}Err_i$
+  - $Err_i=\Sigma I(y_i \neq \hat{y_i})$  
+![CV for Logistic regression](./image/chp5-7.png){width=50%}  
+* black line is estimated decision boundaries from linear, quadratic, cubic and quartic (degrees 1–4) logistic regressions
+* purple dashed line is Bayes decision boundary
+* the test error rates for the four logistic regression fits are respectively 0.201, 0.197, 0.160, and 0.162, while the Bayes error rate is 0.133.
+
+### Bootstrap
+* bootstrap data sets is created by sampling with replacement from population
+* same size as our original dataset.
+* example of 3 obs
+  - each bootstrap data contains 3 obs  
+![CV for Logistic regression](./image/chp5-8.png){width=70%}
+* if **time series**, becasue the boservations are not iid. 
+* then use **block bootstrap**, assume blocks are idd 
+![CV for Logistic regression](./image/chp5-9.png){width=60%}
+* **bootstrap percentile interval**
+  - The bootstrap allows many realizations of similar logistic models, resulting in bootstrap percentile confidence intervals.
+
+
+### lab for CV (split)
+```{r Validation Set Approach}
+# # Validation Set Approach
+library(ISLR)
+set.seed(101)
+attach(Auto )
+library(stats)
+# Method 1
+train=sample(392,196)
+lm.fit=lm(mpg~horsepower , data=Auto ,subset = train )
+MSE_V= mean(( mpg - predict(lm.fit , Auto))[- train])^2
+##[- train] selects only the observations that are not in the training set.
+MSE_V
+# Method 2
+# sample_size = floor(0.75*nrow(SSSSS))  #937
+# train_index= sample(seq_len(nrow(SSSSS)),size = sample_size)
+# train = SSSSS[train_index,]
+# test = SSSSS[-train_index,] 
+
+```
+
+```{r LOOCV}
+# #comment out control-shift-C
+# 
+#  ##LOOCV - Leave one out cross validation
+# library ( boot)
+# glm.fit =glm (mpg~horsepower ,data =Auto)
+# cv.err =cv.glm (Auto,glm.fit )
+# cv.err$delta #cross-validation results.
+# 
+# # cv for different term
+# cv.error =rep (0,10)
+# for (i in 1:10) {
+#   glm.fit = glm (mpg~poly(horsepower ,i),data= Auto)
+#   cv.error[i]=cv.glm(Auto ,glm.fit )$delta[1]}
+# cv.error
+# plot(1:10,cv.error,type = 'o', main = 'LOOCV')
+```
+
+```{r K-Fold CV}
+# # k-Fold Cross-Validation
+# library(boot)
+# cv.error.10= rep (0 ,10)
+# for (i in 1:10) {
+#   glm.fit =glm (mpg~poly(horsepower ,i),data= Auto)
+#   cv.error.10[i]=cv.glm(Auto ,glm.fit ,K=10) $delta [1]
+# }
+# # cv.glm(...., K=10) 10- fold
+# cv.error.10
+# plot(1:10,cv.error,type = 'o', main = 'cv with different poly term',col='red')
+# lines(1:10,cv.error.10,type = 'o')
+```
+
+
+
+# Chapter 6 
+##  Model selection
+* **Best subset selection**
+  - $k = 1,2...p$
+  - fit all $\begin{pmatrix} p\\k \end{pmatrix}$ models that contain exactly k predictors
+  - compare $C_p(AIC)$, $BIC$, oradjusted $R^2$.
+  - smallest test err rather than train err
+  - **But** an enormous search space can lead to overfitting and high variance of the coefficient estimates. (如果predictors 太多的话)
+* **forward selection**
+  - if 10 predictors , choose 1 predictor at first
+  - try all possible two varible predictor (9 moedels) choose the best one 
+  - add one more varibale （8 models)
+  - 增加predictors, find lowest RSS  
+  - We can do forward stepwise in context of linear regression whether _n is less than p or n is greater than p_.    
+  - In order to be able to perform backward selection, we need to be in a situation where we have more observations than variables because we can do least squares regression when n is greater than p. if p is greater than n, we cannot fit a least squares mode
+![](./image/chp6-1.png){width=60%}
+* **Backward selection**
+  - 逐一减去predictors, remove largesr p-value
+  
+* **Estimating Models** 
+* We cann't always use RSS to estimate, instead using**deviance**
+  - negative two times the maximized log-likelihood— plays the role of RSS for a broader class of models.
+* $\mathbf{C_p}$ Mallow's **Cp**
+  - $C_p=\frac 1n(RSS+2d\hat{\sigma})$
+  - where $d$is the total # of parameters used and $\hat{\sigma}$ is anestimate of the variance of the error $\epsilon$ associated with eachresponse measurement.
+  - estimate test MSE
+  - take on a _small value_ for models with a low test error
+* **AIC** Akaike information criterion
+  - $AIC=-2logL+2d$ where $L$ is the maximized value of the likelihood function for the estimated model
+  - a large class of models fit by maximum likelihood
+  - *small value*  better model 
+  - In the case of the _linear model with Gaussian errors_, maximum likelihood and least squares are the same thing,
+and **Cp** and **AIC** are equivalent
+* **BIC** Bayesian information criterion
+  - tend to take on a *small value* for a model with a low test error
+* **adjusted $\mathbf{B^2}$**
+  - a *large value* with lower test error
+  - 之所以不用$r^2$, 因为with more predictors, $r^2$ always larger. 
+
+```{r best subsets approach - regsubsets}
+set.seed(101)
+x = rnorm(100)
+noise =  rnorm(100)
+#generate  y
+y = 5 + 2*x^7+ noise  # beta 7 = 2
+df_bestsub =  data.frame(y=y,x=x)
+
+library(leaps)
+reg_sub = regsubsets(y ~ x + I(x^2) + I(x^3) + I(x^4) + I(x^5) + I(x^6) + I(x^7) + I(x^8) + I(x^9) + I(x^10), data = df_bestsub, nvmax = 10)
+# method="backward" OR method="forward"
+# best subset - method 不填， 
+
+reg_summary = summary(reg_sub)
+
+## select by  cp, bic, r^2
+par(mfrow=c(2,2))
+# plot c'p
+plot(reg_summary$cp,type='l')
+points(which.min(reg_summary$cp),min(reg_summary$cp),col="red") # pints(x,y)
+# plot BIC
+plot(reg_summary$bic,type='l')
+points(which.min(reg_summary$bic),min(reg_summary$bic),col="red") 
+# plot adj R^2
+plot(reg_summary$adjr2,type='l')
+points(which.max(reg_summary$adjr2),max(reg_summary$adjr2),col="red") 
+# According to the plots we can see that all plots holds the critical points at index = 2, which means when there are 2 variables, the model has best performance
+coefficients(reg_sub,2)
+# The best subsets approach select 2 predictors : x^2 and x^7
+```
+
+```{r select by cv, message=FALSE, warning=FALSE}
+# select by cv
+library(glmnet)
+library(ISLR)
+
+mat = model.matrix(Salary ~., data = Hitters)
+
+reg_sub = regsubsets(Salary~. ,data = Hitters, nvmax = 19)
+reg_summary = summary(reg_sub)
+mse= rep(NA,19)
+
+for (i in 1:19){
+        coefi = coef(reg_sub, id=i)
+        pred = mat[,names(coefi)] %*% coefi
+        mse[i] = mean((y-pred)^2)
+}
+
+plot(1:19,mse,type='o',col="darkblue",main="Variable selection",xlab='Number of predictors',ylab='MSE')
+grid(col = "darkgrey")
+points(which.min(mse),mse[which.min(mse)],col = "red",cex = 2,pch=2)
+text(which.min(mse)+1,mse[which.min(mse)],round(which.min(mse),2),col = "red")
+```
+
+## Shrinkage Methods  
+Cost Function: $$RSS=\Sigma^n_{i=1}\left(y_i-\beta_0-\Sigma^p_{j=1}\beta_jx_{ij}\right)^2$$
+
+###  ridge regression 
+* Ridge regression cost function: 
+$$\Sigma^n_{i=1}\left(y_i-\beta_0-\Sigma^p_{j=1}\beta_jx_{ij}\right)^2+\lambda\Sigma^p_{j=1}\beta_j^2=RSS+\lambda\Sigma^p_{j=1}\beta_j^2=RSS+\lambda \Vert \beta_j \Vert^2_2$$  
+* add shrinkage **pently term** for avoiding coefficient is too large. 
+* $\lambda$ control the impact of two terms
+  - $\lambda=0$ penalty term has no effect, ridge regression = ols
+  - $\lambda \rightarrow \infty$, penalty term impact grows, and 
+coefficient estimates will approach zero
+  - use CV 运行不同$\lambda$，找出再哪个$\lambda$的时候cross-validation error最小
+* **Bias-Variance tradeoff**
+  -  $\lambda=0$, the variance is high but there is no bias.(least squares)
+  - as $\lambda$  increases, the shrinkage of the ridge coefficient estimates leads to a substantial reduction in the variance of the predictions,
+  - $MSE = variace + bias^2$ purple
+  - $variance$ green
+  - $bias^2$ black  
+![](./image/chp6-2.png){width=60%}
+![](./image/chp6-3.png){width=60%}   
+
+### lasso regression 
+* lasso regression cost function:$$RSS+\lambda\Sigma^p_{j=1}\vert \beta_j \vert = RSS+ \lambda \Vert \beta_j \Vert_1$$  
+* Lasso method overcomes the disadvantage of Ridge regression by not only punishing high values of the coefficients β but actually setting them to zero if they are not relevant.
+* **varible selection**:
+  - lasso 随着 $\lambda$ 会先后归零
+  - use CV 运行不同$\lambda$，找出再哪个$\lambda$的时候cross-validation error最小
+  - $MSE = variace + bias^2$ purple (虚线ridge)
+  - $variance$ green 
+  - $bias^2$ black   
+![model with all 45 predictors](./image/chp6-5.png){width=60%}
+![model with 2 out of 45 predictors](./image/chp6-5.5.png){width=60%}
+![](./image/chp6-4.png){width=60%} 
+```{r ridge}
+library(glmnet)
+library(ISLR)
+dim(x)
+x = model.matrix(Salary ~ .-1, data = Hitters)
+y = Hitters$Salary
+y = na.omit(y)
+
+lam2 =10^seq (10,-2, length =100)
+ridge.fit = glmnet (x,y,alpha =0,lambda=lam2)
+# without lambda, lambda will auto choose
+# alpha = 0 ridge reg , alpha = 1 lasso
+
+dim(coef (ridge.fit ))
+# with 21 rows (one for each predictor, plus an intercept) and 100 columns (one for each value of λ).
+
+coef( ridge.fit)[ ,1]
+# firstly column close to 0, large penalty
+# lost column of coef is large = lm() coef
+
+plot(ridge.fit,xvar="lambda",main='model with orginal x' )
+# with larger penalty coe close to 0 
+ridge.fit2 = glmnet (scale(x),y,alpha =0,lambda=lam2)
+plot(ridge.fit2,xvar="lambda",main='model with scale x' )
+#  xvar = c("norm", "lambda", "dev"),
+
+# find best lambda
+set.seed (1)
+cv.ridge =cv.glmnet (x,y,alpha =0)
+#plot(cv.ridge)
+bestlam =cv.ridge$lambda.min
+# lambda.min => return the lambda with lowest cv error
+
+#ridge.fit = glmnet (x,y,alpha =0,lambda=lam2)
+ridge.pred=predict (ridge.fit ,s=bestlam ,newx=x)
+# plot(ridge.fit2,xvar="lambda",main='model with best lambda' )
+# abline(v=log(bestlam),col='red')
+MSE.ridge = mean(( ridge.pred -y)^2)
+
+```
+
+
+```{r LASSO, message=FALSE, warning=FALSE}
+lasso.fit = glmnet (scale(x),y,alpha =1 ) 
+plot(lasso.fit)
+
+plot(lasso.fit,xvar='lambda' , main = 'lambda = log(1)')
+abline(v=1,col='red')
+# lambda = log(1)
+# predict( lasso.fit,s=exp(1),type="coefficients") 
+# 查看具体数据
+# exp(1) => v=1 above
+
+# find lambda
+cv.lasso = cv.glmnet(x,y, alpha=1)
+#plot(cv.lasso)
+lam_lasso = cv.lasso$lambda.min  # best lam
+lam_lasso
+# fit model with the best lambda
+# lasso.fit = glmnet (scale(x),y,alpha =1 ) 
+plot(lasso.fit,xvar='lambda', main = 'with best lambda')
+abline(v=log(lam_lasso),col='orange')
+lasso.pred = predict(lasso.fit, s = lam_lasso , type = "coefficients",main = 'with best lambda')
+
+# label the variable 
+lbs_fun <- function(fit, ...) {
+        L <- length(fit$lambda)
+        x <- log(fit$lambda[L])
+        y <- fit$beta[, L]
+        labs <- names(y)
+        text(x, y, labels=labs, ...)
+}
+lbs_fun(lasso.fit)
+#display the coef with select lambda
+coef(lasso.fit,s=lam_lasso)
+
+```
+
+### PCA Dimension Reduction Methods
+
+# Chapter 7 
+
+## Ploynomial Regression
+$$y_i=\beta_0+\beta_1x_i+\beta_2x_i^2+\beta_3x_i^3+...+\beta_dx^d_i+\epsilon_i$$
+![](./image/chp7-1.png){width=60%}    
+
+* left- poly regression:
+  - solid - fitted line
+  - dotted - 95% CI(+/- std error), 尾部err变大是因为后面数据稀少，准确率下降
+  - CI = $\hat{f}(x_0)\pm 2*se[\hat{f}(x_0)]$
+* right - logistic regression: 
+  - prob (wage < 250 or not)
+* bias-variance trade off     
+![](./image/chp7-3.png){width=60%}
+```{r PloynomialReg}
+Wage=ISLR::Wage
+fit_ployreg=lm(wage~poly(age ,4) ,data=Wage)
+coef(summary (fit_ployreg))
+# fit2a=lm(wage∼age+I(age ^2)+I(age ^3)+I(age ^4) ,data=Wage)
+# fit2b=lm(wage∼cbind(age ,age ^2, age ^3, age ^4) ,data=Wage)
+
+
+# we can use ANOVA to compare the model
+# > fit .1= lm(wage∼age ,data=Wage)
+# > fit .2= lm(wage∼poly(age ,2) ,data=Wage)
+# > fit .3= lm(wage∼poly(age ,3) ,data=Wage)
+# > fit .4= lm(wage∼poly(age ,4) ,data=Wage)
+# > fit .5= lm(wage∼poly(age ,5) ,data=Wage)
+# > anova(fit .1, fit .2, fit .3, fit .4, fit .5)
+# Analysis of Variance Table
+# Model 1: wage ∼ age
+# Model 2: wage ∼ poly(age , 2)
+# Model 3: wage ∼ poly(age , 3)
+# Model 4: wage ∼ poly(age , 4)
+# Model 5: wage ∼ poly(age , 5)
+# Res.Df RSS Df Sum of Sq F Pr(>F)
+# 1 2998 5022216
+# 2 2997 4793430 1 228786 143.59 <2e-16 ***
+# 3 2996 4777674 1 15756 9.89 0.0017 **
+# 4 2995 4771604 1 6070 3.81 0.0510 .
+# 5 2994 4770322 1 1283 0.80 0.3697
+# ---
+# Signif . codes: 0 ’***’ 0.001 ’**’ 0.01 ’*’ 0.05 ’.’ 0.1 ’ ’ 1
+
+# The p-value comparing the linear Model 1 to the quadratic Model 2 is essentially zero (<10−15), indicating that a linear fit is not sufficient. 
+# Similarly the p-value comparing the quadratic Model 2 to the cubic Model 3 is very low (0.0017), so the quadratic fit is also insufficient. 
+# The p-value comparing the cubic and degree-4 polynomials, Model 3 and Model 4, is approximately 5% while the degree-5 polynomial Model 5 seems unnecessary because its p-value is 0.37.
+```
+
+## Step function (piecewise-constant regression)
+$$C_1(X) = I(X<c_1)=I(X < 35)\\ C_2(X)=I(c_1\leq X<c_2) = I(35 \leq X < 50)\\ . . . ,\\ C_K(X) = I(X \geq c_K)$$ 
+$$y_i=\beta_0+\beta_1C_1(x_i)+\beta_2C_2(x_i)+\beta_3C_3(x_i)+...+\beta_KC_K(x_i)+\epsilon_i$$  
+
+* I is indicator function that return 1 if true and 0 if false
+  - $C_1(X)+C_2(X)+. . .+C_K(X) = 1$
+* A step function is discontinuous (not continuous).
+* break x into bins $\Rightarrow$fit bins into different constant 
+* eg $f(x) = \begin{cases} 2 & x \leq -1 \\ 1 & -1<x<2\\5 &x \geq2 \end{cases}$       
+
+![](./image/chp7-2.png){width=60%     } 
+
+## Piecewise defined function
+
+* A piecewise defined function is a function defined by at least
+two equations ("pieces"), each of which applies to a different
+part of the domain.
+* Piecewise defined functions can take on a variety of forms.
+* Their "pieces" may be **all linear, or a combination of**
+functional forms (such as constant, linear, quadratic, cubic,
+square root, cube root, exponential, etc).    
+![](./image/chp7-4.jpg){width=60%}            
+
+* **basis function**
+  -$y_i=\beta_0+\beta_1b_1(x_i)+\beta_2b_2(x_i)+...+\beta_Kb_K(x_i)+\epsilon_i$
+  - basis function $b_1(·),b_2(·)...b_K(·)$ are fixed 
+  - common choice for a basis function: **regression splines**.  
+
+![with one knot at age = 50](./image/chp7-5.png){width=60%}  
+
+* top left - Piecewise Cubic
+  - unconstrained 
+* top right - Continuous Piecewise Cubic
+  - = top left + constraint(fitted value must be continous)
+  - 
+* lower left - Cubic Spline 
+  - = top right + (continuity,+
+continuity of the first derivative, + continuity of the second derivative)
+  - require piecewise ploynomial be continuous and smooth
+  - $d$ degree and derivatives up to $d-1$
+* lower right - linear spline
+  - continuity
+
+
+### Piecewise Polynomials (reg splines)
+* Piecewise Cubic when $degree=3$ (degree 3 spline)
+* $y_i= \begin{cases} \beta_{01}+\beta_{11}x_i+\beta_{21}x_i^2+\beta_{31}x_i^3+\epsilon_i & \text{ if } x_i<c \\ \beta_{02}+\beta_{12}x_i+\beta_{22}x_i^2+\beta_{32}x_i^3+\epsilon_i &\text{ if } x_i\geq c \end{cases}$
+![](./image/chp7-6.png){width=60%}   
+
+### Cubic Splines (degree=3)
+* Third order Piecewise Polynomials add constraints  
+![](./image/chp7-7.jpg){width=60%}   
+
+* **boundary considerations **
+  - require piecewise ploynomial be continuous and smooth
+  - $d$ degree and derivatives up to $d-1$, thus here cubic spline
+* formula:
+  - $y_i=\beta_0+\beta_1b_1(x_i)+\beta_2b_2(x_i)+...+\beta_{K+3}b_{K+3}(x_i)+\epsilon_i$ 
+  - where $b_1(x_i)=x_i\\b_2(x_i)=x_i^2\\b_{k+3}(x_i)=(x_i-\xi_k)^3_+ \text{ where } k = 1,2, . . . K$
+  - Here the $()_+$ means postive part 
+    + $(x_i-\xi_k)^3_+=\begin{cases}(x_i-\xi_k)^3 & \text{if }x_i>\xi_k \\0 & \text{otherwise} \end{cases}$
+  - Eg:
+    + $y_i=\beta_0+\beta_1x_i+\beta_2x_i^2+\beta_3x^3_i+\beta_4(x_i-0.6)^3+\beta(x_i+0.9)^3$
+    
+#### Truncated polynomial of defree D:
+* $(x_i-\xi_k)^D_+=\begin{cases}0 & x<\xi_k\\ (x-\xi_k)^D& x \geq \xi_k\end{cases}$
+* Thus the equation for a spline of degree D with K knots is:
+$y=\beta_0+\Sigma^D_{d=1}\beta_dx^d+\Sigma^K_{k=1}b_k(x-\xi_k)^D_+$
+
+![](./image/chp7-10.jpg){width=60%}  
+
+### Natural Cubic Splines
+* cubic spline + two constrains: 
+  - model should be linear at the boundary regions- to avoid high variability at boundary regions in cubic splines
+  - second derivative and the third derivatives are equal to 0.  
+  - (Fix the locations of K knots at quantiles of X.)
+![A cubic spline and a natural cubic spline, with three knots](./image/chp7-8.png){width=60%}   
+
+```{r Cubic Splines & natural spline}
+library(ISLR)
+library(splines)
+agelims=range(Wage$age)
+age.grid=seq(from=agelims[1],to=agelims[2])
+# Cubic Splines
+ns_fit <- lm(wage ~ ns(age, knots=c(20,40,60)), data=Wage)
+pred.ns = predict(ns_fit,list(age=age.grid), se=T)
+# natural spline
+bs_fit <- lm(wage ~ bs(age, knots=c(20,40,60)), data=Wage)
+pred.bs = predict(bs_fit,list(age=age.grid), se=T)
+
+plot(Wage$age, Wage$wage, pch=19, col='lightgrey',cex=0.5)
+lines(age.grid,pred.ns$fit, col="#3690C0",lwd=4)
+lines(age.grid,pred.bs$fit, col="darkturquoise",lwd=1)
+legend("topright",c("Cubic Splines","Natural Spline"),col=c("darkturquoise","#3690C0"),lwd=c(1,4))
+# natural spline has better behavior at the boundary points
+```
+
+### Linear Splines
+* A linear spline with knots at $\xi_k$, $k = 1,2, . . . K$ is a piecewise linear polynomial continuous at each knot.
+* formula
+  - $y_i=\beta_0+\beta_1b_1(x_i)+\beta_2b_2(x_i)+...+\beta_{K+3}b_{K+3}(x_i)+\epsilon_i$ 
+  - where $b_1(x_i)=x_i\\b_{k+1}(x_i)=(x_i-\xi_k)_+$ 
+  - Here the $()_+$ means postive part
+    + $(x_i-\xi_k)_+=\begin{cases}x_i-\xi_k & \text{if }x_i>\xi_k \\0 & \text{otherwise} \end{cases} \text{ where } k = 1,2, . . . K$
+    
+![](./image/chp7-9.png){width=60%}      
+
+### choose knots (number and location)
+* Look at the data, place knots where we feel the function
+might vary most rapidly. 找到变化最快的地方
+* But, in practice we want it to be uniform!! Specify the desired degrees of freedom.  或者设置df (df 决定knot)
+* In general, **cubic spline** with **K knots uses a total of 4+K** 
+degrees of freedom(with the intercept).
+* **Natural Cubic Splines** with **K knots has K+1 degrees of freedom** (with the intercept).
+* knot relacement: rules of thumb
+  - more knots, y appreas to be changing repidly
+  - fewer knots, y appears to be slowly varying    
+![](./image/chp7-11.png){width=60%}   
+上图witout intercept         
+![](./image/chp7-12.png){width=60%}      
+
+
+* 3 knots ($\xi_1.\xi_2.\xi_3$)= 7 df cubic spline
+  - $f(x)=\beta_0+\beta_1x+\beta_2 x^2+\beta_3 x^3+\beta_4(x - \xi_1)^3+\beta_5(x - \xi_2)^3+\beta_6(x - \xi_3)^3$
+
+
+This is also explained in the text book.
+
+
+## smoothing splines
+$$\min_{g \in S} \Sigma^n_{i=1}(y_i-g(x_i))^2+\lambda \int g''(t)^2 dt$$  
+
+* The first term is RSS, 
+* The second term is a **roughness penalty** and controls how wiggly $g(x)$ is. It is modulated by the tuning parameter $\lambda ≥ 0$. (page 278)
+* As $\lambda \rightarrow \infty$, the function becomes linear (be perfectly smooth)
+  * As $\lambda$ grows, the spline becomes less sensitive to the data, with lower variance to its predictions but more bias. 
+  * Smoothing splines avoid the knot-selection issue, leaving a single λ to be chosen.
+  * the function g(x) that minimizes  function is a natural cubic spline with knots at x1, . . . , xn!it is a shrunken version of such a natural cubic spline, where the value of the tuning parameter λ controls the level of shrinkage.
+  * The algorithmic details are too complex to describe here. In R, the function _smooth.spline()_ will fit a smoothing spline.
+
+  * The effective degrees of freedom are given by$df_{\lambda}=\Sigma^n_{i=1}\{S_{\lambda}\}_{ii}$
+  
+![](./image/chp7-16.jpg){width=60%}   
+```{r smoothing spline, message=FALSE, warning=FALSE}
+Wage=ISLR::Wage
+ss_fit5 <- smooth.spline(Wage$age,Wage$wage,cv=TRUE,df=5,lambda = 0.5)
+ss_fit25 <- smooth.spline(Wage$age,Wage$wage,cv=TRUE,df=5,lambda = 5)
+ss_fit50 <- smooth.spline(Wage$age,Wage$wage,cv=TRUE,df=5,lambda = 500)
+# step1: cv choose pently , 
+# step2: split the data
+# step3:pick lamdba from grid eg[0,10]
+# step4: train the model by x_train, evaluate the x_test
+plot(Wage$age, Wage$wage, pch=19, col='grey')
+lines(ss_fit5,col="orangered", lwd=1)
+lines(ss_fit25,col="blue", lwd=1)
+lines(ss_fit50,col="goldenrod1", lwd=1)
+# df larger, less smooth
+legend('topright',col=c('orangered','blue','goldenrod1'),c('lambda = 0.5','lambda = 5','lambda = 500'),lty=1)
+```
+
+## Local regression  
+Algorithm: local refression at $X=x_0$ 
+
+1. gather the fraction s=k/n of training points whose $x_i$ are closest to $x_0$
+2. Assign a weight $K_{i0}=K(x_i,x_0)$ to points in neighborhood,so that the point furthest from $x_0$ has weight zero,and closest has the hightest weight. 
+3. fit **weighted least squares regression**
+  * $\min \Sigma^n_{i=1}w_i(y_i-\beta_0-\beta_1x_i)^2$
+4. the fitted value at $x_0$ is given by $\hat f(x_0)=\hat \beta_0+\hat \beta_1 x_0$    
+![](./image/chp7-13.jpg){width=60%}  
+![bias-variance tradeoff](./image/chp7-14.jpg){width=60%} 
+```{r local reg}
+Wage=ISLR::Wage
+
+loreg.fit1=loess(wage~age,data=Wage, span=0.1)
+pred.lo1 = predict(loreg.fit1)
+loreg.fit2=loess(wage~age,data=Wage, span=0.5)
+pred.lo2 = predict(loreg.fit2)
+loreg.fit3=loess(wage~age,data=Wage, span=1)
+pred.lo3 = predict(loreg.fit3)
+par(mfrow=c(1,3))
+plot(Wage$age, Wage$wage, pch=19, col='grey')
+lines(Wage$age,pred.lo1, col="darkturquoise",lwd=1)
+plot(Wage$age, Wage$wage, pch=19, col='grey')
+lines(Wage$age,pred.lo2, col="lightpink",lwd=1)
+plot(Wage$age, Wage$wage, pch=19, col='grey')
+lines(Wage$age,pred.lo3, col="lightgoldenrodyellow",lwd=1)
+# span 越大越smooth
+```
+
+## Generalized Additive models - GAMs
+$$y_i=\beta_0+f_1(x_{i1})+f_2(x_{i2})+...+f_p(x_{ip})+\epsilon_i$$    
+
+* where $f_i$can be any functin : log(x),sqrt(x), poly reg, natural cubic spline or local regression
+* estimates: $\hat{ \beta_0},\hat{f_1},\hat{f_2}...,\hat{f_p}$  
+![](./image/chp7-15.png){width=60%}   
+
+* can fit a GAM simply using, eg natural splines
+  + fit.lm.wage=lm(wage~ns(year, df = 5) + ns(age, df = 5) + education)
+* can use smoothing splines or local regression as well
+
+```{r GAM, message=FALSE, warning=FALSE}
+Wage=ISLR::Wage
+attach(Wage)
+library(splines)
+library(gam)
+par(mfrow=c(1,3))
+### regression model
+attach(Wage)
+
+# Method 1:  can fit a GAM simply using, eg natural splines
+fit.lm.wage=lm(wage~ns(year, df = 5) + ns(age, df = 5) + education)
+summary(fit.lm.wage)
+plot.Gam(fit.lm.wage,se=T,col='mediumvioletred')
+
+# Method 2:  can use smoothing splines or local regression as well:
+fit.gam.wage=gam(wage ~ s(year, df = 5) + lo(age, span = .5) + education)
+#summary(fit.gam.wage)
+plot(fit.gam.wage,se=T,col='mediumvioletred')
+# x-variable, y-response
+# For variable ‘year’ the Salaries tend to increase , and it seems that there is a decrease in salary at around year 2007 or 2008. And for the Categorical variable ‘education’ , Salary also increases monotonically.
+
+# It does not makes a difference if we use gam() or lm() to fit Generalized Additive Models.
+
+### logistic Regression Model
+# identity I() function to convert the Response to a Binary variable.
+fit.logit.gam = gam(I(wage > 250) ~  s(year, df = 5)+s(age, df = 4)  + education, family = binomial,data=Wage)
+plot(fit.logit.gam,se=T,col='mediumvioletred')
+# P(wage>250 | Xi) and P(wage<250 | Xi)
+# The above Plots are the same as the first Model,difference is that the Y-axis will now be the Logit of the Probability values
+# In the above Plot for ‘Year’ variable we can see that the error bands are quiet wide and broad.
+# This might be an indication that our Non linear function fitted for ‘Year’ variable is not significant.
+```
+
+## ANOVA
+* checking the goodness of fit by anova() function
+```{r ANOVA, message=FALSE, warning=FALSE}
+fit.logit.gam2 = gam(I(wage > 250) ~  year+s(age, df = 4)  + education, family = binomial,data=Wage)
+summary(fit.logit.gam2)
+anova(fit.logit.gam,fit.logit.gam2,test='Chisq')
+# The p-value (0.7924) suggests that we fail to reject the null hypothesis  and conclude that model 1 is not signficant different from second model
+
+# if  a very small p-value (< .001). This means that the changing in model2  did lead to a significantly improved fit over the model 1
+```
+
+# Lecture 8 Tree-Based Method  
+Decision trees can be applied to both regression and
+classification problems.  
+
+## Regression Tree
+[ Regression Tree](https://www.youtube.com/watch?v=g9c66TUylZ4)  
+![Hitter data](./image/chp8-1.png){width=70%}
+
+* $R_1=\{X \mid Year<4.5 \}$,
+* $R_2=\{X \mid Year\geq 4.5 ,Hits<117.5\}$,and 
+* $R_3=\{X \mid Year\geq 4.5,Hits\geq 117.5 \}$
+* $R_1,R_2,R_3$ are known as **terminal nodes**
+* **leaves** are at the bottom of tree
+* The points along the tree where the predictor space is split are referred to as **internal nodes**, (here *Year<4.5* and *Hit<117.5*)
+* Interpretation:
+  - Years is the most important factor in determining Salary, and players with less experience earn lower salaries than more experienced players.
+  - Given that a player is less experienced, the number of Hits that he made in the previous year seems to play little role in his Salary.
+  - But among players who have been in the major leagues for five or more years, the number of Hits made in the previous year does affect Salary, and players who made more Hits last year tend to have higher salaries.
+  - Surely an over-simplification, but compared to a regression model, it is easy to display, interpret and explain
+
+### Tree-building process
+
+* Divide the predictor space that is, the set of possible values for $X_1,X_2, .. .X_p$ | into $J$ distinct and
+non-overlapping regions, $R_1,R_2, ...R_j$
+* every observation that falls into the same region $R_j$, we make the same prediction, which is simply the mean of the response values for the training observations in $R_j$. obs 在同一个region 有同样的prediction
+* In theory, the regions could have *any shape*. However, we choose to divide the predictor space into high-dimensional *rectangles*, or boxes, for simplicity and for ease of interpretation of the resulting predictive model.
+* **RSS**: $\Sigma^J_{j=1}\Sigma_{i \in R_j}(y_i-\hat{y}_{R_j})^2$ where $\hat{y}_{R_j}$ is the mean response for the training observation whin $j$th box
+* find cutpoint that leads to the greatest possible reduction in RSS
+* Repeat: looking for the best predictor and best cutpoint in order to split the data
+* Five Region Example:
+  - top left: A partition of two-dimensional feature space that could not result from recursive binary splitting.
+  - Top Right: The output of **recursive binary** splitting on a two-dimensional example. 
+  - Bottom Left: A tree corresponding to the partition in the top right panel. 
+  - Bottom Right: A perspective plot of the prediction surface corresponding to that tree.
+![](./image/chp8-2.png){width=50%}   
+
+### Pruning a tree
+* avoid overfit ( smaller tree lower var higher bias)
+* A better strategy is to grow a very large tree $T_0$, and then **prune** it back in order to obtain a **subtree**
+* [**Cost complexity pruning**](https://www.youtube.com/watch?v=D0efHEJsfHo) - also known as weakest link pruning - is used to do this
+* $\Sigma^{|T|}_{m=1}\Sigma_{i \in R_m}(y_i-\hat{y}_{R_m})^2+\alpha|T|$ 
+  - Tree Score = $SSR+\alpha \mid T \mid$
+  - where $\alpha\geq0$
+  - $T$ indicates the number of terminal nodes of tree
+  - $R_m$ is rectangle corresponding to the mth terminal node
+  - $\hat{y}_{R_m}$ is the mean of the training obs in $R_m$
+  - pently controls the number of nodes(var-bias trade off), larger $\alpha$ less complexity (trade-off between the subtree's complexity and its fit to the training data)
+* Select an optimal value $\alpha$ by CV
+
+* youtube process, full size tree： Tree score = SSR + 0 * T
+* find 每个alpha 在那个subtrees 下 Tree score 最小  
+![](./image/chp8-9.png){width=50%}    
+* split into train & test   
+![](./image/chp8-10.png){width=50%}   
+![](./image/chp8-11.png){width=50%}  
+![](./image/chp8-12.png){width=50%}   
+* used the alpha we select back to the full size tree -- final tree
+Summary tree algorithm:
+
+* Use recursive binary splitting to grow a large tree, stopping only when each terminal node has fewer than some minimum number of observations.
+* Apply cost complexity  pruning to the large tree to obtain a sequence of best subtress (with different $\alpha$).
+* CV to choose $\alpha$
+* retrun subtree with chosen $\alpha$
+  
+## Classification Trees
+
+process:
+
+* use recursive binary splitting to grow a classification tree.
+* RSS is **classification error rate**.
+  - $E=1-\max_k(\hat p_{mp})$
+  - $\hat p_{mp}$ represents the proportion of training observations in the mth region that are from the $k$th class.
+* **Gini index**
+  - $G=\Sigma^K_{k=1}\hat p_{mk}(1-\hat p_{mk})$ & $1-p^2(yes)-p^2(no)$
+  - a measure of total variance across the K classes.
+  - Gini index is referred to as a measure of **node purity**, a small value indicates that a node contains predominantly observations from a single class.
+  - [purity](https://www.youtube.com/watch?v=7VeUPuFGJHk&t=1s)
+    + A node is 100% impure when a node is split evenly 50/50
+    + 100% pure when all of its data belongs to a single class
+  - 越小越好 计算每个不同的nodes的gini 最用gini最小的那个组合
+  - 
+* **cross-entropy**
+  - $D=-\Sigma^K_{k-1}\hat p_{mk}\log \hat p_{mk}$
+  - An alternative to the Gini index
+  - 熵越小，分类效果越好
+  - https://blog.csdn.net/genghaihua/article/details/81330917
+  
+Trees Versus Linear Models  
+![](./image/chp8-5.png){width=50%}  
+
+* Top Row: True linear boundary; 
+* Bottom row: true non-linear boundary.
+* Left column: linear model; 
+* Right column: tree-based model
+
+## Bagging
+
+* Bootstrap aggregation, or bagging,
+  - bootstrap: a set of n independent observations $Z_1...Z_n$, each with variance $\sigma^2$, the variance of the mean $\bar Z$ of the observations is given by $\sigma^2/n$.
+* is a general-purpose procedure for reducing the variance of a statistical learning method
+* Regression Tree
+  - We generate B different bootstrapped training data sets, 
+  - Then training B set 
+  - Average all the predications
+* Classification Tree
+  - for each test observation, we record the class predicted by each of the B trees, 
+  - take a *majority vote*: the overall prediction is the most commonly occurring class among the B predictions.
+* each tree is built on a bootstrap data set, independent of the other trees.
+* 用bootstrap$\Rightarrow$创建B个datasets$\Rightarrow$每个datasets 创建一个tree用所有的predictors$\Rightarrow$输入预测值$\Rightarrow$result = most votes
+* **Out-of-Bag Error Estimation**
+  - without the need to perform cross-validation or the validation set approach
+  - key to bagging is that trees are repeatedly fit to bootstrapped subsets of the observations, on average each bagged tree makes use of around two-thirds of the observations. The remaining one-third of the observations not used to fit a given bagged tree are referred to as the **out-of-bag (OOB)** observations.
+  - **OOB error** = OOB MSE for regession = OOB classification error for a classification problem
+  - different oob pred and pred on train
+    + OOB predictions are based on a rather small subsample of the trees in the forest and are thus at a disadvantage relative to predictions that can be legitimately based on the entire forest. 
+    + OOB predictions are expected to exhibit worse performance because their distribution is not the same as the distribution on which the individual trees are grown.
+    + This is because oob predictions are computed in exactly the same way as in _leave one out cross validation_. In all cross validation computations, the test error is expected to be larger than the training area.
+    + 如果n= 1000trees 上升， Expect the training error to become somewhat smaller and the out of bag error possibly to become larger
+    + bagging 变成 rf ， oob larger , since trees with irrelevant predictors will often be selected (p = 10/28).    
+![](./image/chp8-8.png){width=50%}
+* **Variable Importance Measures**
+  - 值越高variable 约重要
+
+
+## Random Forests
+
+* improvement over bagged trees by way of a small tweak that **decorrelates** the trees.
+* **random selection of m predictors**: subtree = select a m number of features  from full set of predictores
+* typically we choose $m \approx \sqrt p$; eg 4 out of 13 features
+* Eg: Yellow one = bagging
+* 用bootstrap$\Rightarrow$创建B个datasets$\Rightarrow$每个datasets 创建一个tree用**部分**的predictors$\Rightarrow$输入预测值$\Rightarrow$result = most votes
+  - 错误预测= out of bag error (可以用这个方法找到最精确的m)    
+![](./image/chp8-6.png){width=50%}
+
+## Boosting (gradient)
+
+* works in a similar way as bagging (subtree is idd), except that the trees are grown sequentially: each tree is grown using information from previously grown trees. 
+* build forests with weak learner
+* Algorithm:
+  + regression tree
+  + classfication 
+
+### regression tree:
+
+* [Example](https://www.youtube.com/watch?v=3CC4N4z3GJc)
+  + set a maximum number of leaves (here 4)
+  + start with a leaf: 
+    * compute the average of target variable 
+    * obtain **residual** (red block) 
+    * residual = average - observation
+  + create a first tree with 4 leaves at most (variables + residuals)
+  + two row has same leaves thus, replace that leaves as the average number in that leaves (here [(-14.2+-15.2)/2=-14.7] )
+![](./image/chp8-22.png){width=50%}        
+  + predict = average + residual ==> results may lead to overfit     
+![](./image/chp8-23.png){width=50%}  
+  + thus **scale** the new residuals from the new tree **Learning Rate** 
+    - Learning Rate between 0 and 1
+    - a small step result in better prediction in testing dataset (lower variance)    
+![](./image/chp8-24.png){width=50%}  
+  + residuals = observation - new predicted (with small step) (here 88-72.9=15.1)
+  + New tree (variable + residuals)  ==> scale all tree by 0.1  ==> average + first scaled value + secound scaled value ==> New residuals    
+![](./image/chp8-25.png){width=50%}   
+![](./image/chp8-26.png){width=50%}    
+  + repeated steps until we reach the maximum specified or adding additional trees does not significantly reduce the size of the residuals. 
+
+* textbook formula: 
+  1. Set $\hat f(x)=0$ and $r_i=y_i$ for i in training set (in example is average)
+  2. for $b=1,2,3..., B$
+      1. fit a tree $\hat f^b$ with $d$ splits ($d+1$ terminal nodes) to the training data $(X,r)$ 
+      2. Update $\hat f$ by adding in the s shrunken version of the new tree $\hat f(x) \leftarrow \hat f(x)+\lambda  \hat f^b (x)$
+      3. Update the residuals $r_i \leftarrow  r_i - \lambda \hat f^b (x_i)$
+  3. Output the boosted model, $\hat f(x)=\Sigma^B_{b=1}\lambda  \hat f^b (x)$
+        
+### Classification Tree:  
+https://youtu.be/jxuNLH5dXCs
+
+* start with a leaf:
+  * $\log(odds) = \log(\frac{category1}  {category2})$
+  * convert it to probability $\text{prob of category1} = \frac{e^{\log(odds) }}{1+e^{\log(odds) }}$ (logistic function)   
+![](./image/chp8-27.png){width=50%}  
+  * if prob > threshold, ==> category1
+  * compute the residuals 
+    + here Yes = residuals  = 0.3
+    + here No  = residuals  = - 0.7     
+![](./image/chp8-28.png){width=50%}     
+  * create a first tree with 4 leaves at most (variables + residuals)
+  * compute the output value $\frac{\Sigma \text{ residual}}{\Sigma [\ \text{ previous prob}_i  *(1-\text{ previous prob}_i ) ]}$     
+![](./image/chp8-29.png){width=50%}  
+![](./image/chp8-30.png){width=50%}   
+  * compute new prob (here = $\frac{e^{1.8}}{1+e^{1.8}}=0.9$)   
+  * compute new residuals     
+![](./image/chp8-31.png){width=50%}        
+  * build new tree with new residuals  
+  * compute new output value ( previous prob is pink col)
+  * repeat     
+![](./image/chp8-32.png){width=50%} 
+  * predict new value ==> convert to prob = e/(1+e) = 0.9 ==> YES     
+![](./image/chp8-33.png){width=50%} 
+
+
+## Adaboost
+[Example](https://youtu.be/LsK-xG1cLYA)
+
+*  create a forest of stumps
+  - 不同于rf，使用多个variables
+  - forest of stumps: just use a node and two leaves(**stump** or weak learner) to predict
+* votes to predict/classfiy
+  - 不同于rf, each tree 有相等 weighted to voted 
+  - 不同的**stump**有不同的“amount of say” ,(越大 权重越大)
+Algorithm  
+
+* 创建一个col： sample weight  = 1/row
+* 每次用一个var 创建一个二分tree 计算gini ==> lowest one is the first stump  
+![](./image/chp8-16.png){width=50%}
+* 计算 **amount of say**  of first stump   
+![](./image/chp8-15.png){width=50%}
+  - $\frac12 \log(\frac{1-\text{total error}}{\text{total error}})$
+  - total error
+    + sum of sample weight of wrong rows
+    + total error = 1 for horrible stump, and 0 for perfect stump   
+  - total err is small: amount of say  = large positve value
+  - total err is 0.5 :  amount of say  = 0
+  - total err is large: amount of say  = large negative value     
+![](./image/chp8-14.png){width=50%}
+* 计算 **New Sample Weight**  after first stamp
+  - Increasing Sample Weight for incorrectly classified sample
+    + New Sample Weight = sample * $\epsilon^{\text{amount of say}}$  
+    + 也就是说当上一个准确率越高下一个tree 的 Sample Weight is scaled by a relatively big number, 新sample weight 比旧的略大
+![](./image/chp8-17.png){width=50%}  
+  - Decreasing Sample Weight for correctly classified sample
+    + New Sample Weight = sample * $\epsilon^{\text{-amount of say}}$  
+    + 也就是说当上一个准确率越高下一个tree 的 Sample Weight is scaled by a relatively small number, 新sample weight 比旧的略小
+  - Normalized new weight so that they will add up to 1. 
+* use the modified sample wrights to make a new collection of sample with same number of rows          
+![](./image/chp8-18.png){width=50%}
+![](./image/chp8-19.png){width=50%}     
+* 创建一个col for new sample collection： sample weight  = 1/row    
+![](./image/chp8-20.png){width=50%}   
+* create a new stump (所以前一个stump 影响下一个)
+* 用votes to predict/classify    
+![](./image/chp8-21.png){width=50%}  
+
+## XGBoost
+https://www.youtube.com/watch?v=OtD8wVaFm6E
+
+# Lecture 10 Unsupervise learning
+
+* *unlabeled data*
+  - easier obtain, labeled data, which can require human intervention. For example it is difficult to automatically assess the overall sentiment of a movie review: is it favorable or not?
+* Goal:
+  - discover interesting things about the
+measurements:
+    + what is data pattern? 
+    + informative way to visualize data?
+    + Can we discover subgroups among the variables or
+among the observations?
+* Two method:
+  - **PCA**
+    + visualization or data pre-processing before supervised
+techniques are applied, (High dim to low dim)
+  - **Clustering**
+    + discovering unknown subgroups in data.
+* challenge:
+  - is more subjective than supervised learning, no simple goal
+  - techniques for unsupervised learning are of growing
+importance in a number of fields:
+    + subgroups of breast cancer patients grouped by their gene
+expression measurements,
+    + groups of shoppers characterized by their browsing and
+purchase histories,
+    + movies grouped by the ratings assigned by movie viewers.
+
+## Clustering
+
+* *Clustering* refers to a very broad set of techniques for finding *subgroups*, or *clusters*, in a data set.
+* We seek a partition of the data into distinct groups so that the observations within each group are quite similar to each other,
+* It make this concrete具体的, we must define what it means for
+two or more observations to be *similar* or *different.*
+* Indeed, this is often a domain-specific consideration that must be made based on knowledge of the data being studied. 如何分组基于常识
+* Useful for **Market Segmentation**
+  - identifying subgroups of people who might be more receptive to a particular form of advertising, or more likely to purchase a particular product.
+* Two Method
+  - **K-means clustering**,
+  - **hierarchical clustering**,
+    + we end up with a tree-like visual representation of the observations, called a **dendrogram** that allows us to view at once the clusterings obtained for each possible number of clusters, from 1 to n.
+
+### K-means clustering
+* Seek to partition the obs into a pre-specified number (**K**) of clusters    
+![](./image/chp10-1.png){width=50%}   
+* can not tell us whether it is right or not,  number of clusters depends on your choice
+* $\min_{C_1...C_K} \{ \Sigma^K_{k=1} WCV (C_k)$ 
+  - where $WCV(C_k)$ is Euclidean distance (within-cluster variation)
+    + $WCV(C_k)=\frac{1}{|C_k|} \Sigma_{i,i'\in C_k}$
+* Algorithm
+  1. Randomly assign a number, from 1 to K, to each of the observations. These serve as initial cluster assignments for the observations.
+  2. Iterate until the cluster assignments stop changing:
+      1 For each of the K clusters, compute the cluster centroid. The kth cluster centroid is the vector of the p feature means for the observations in the kth cluster.
+      2 Assign each observation to the cluster whose centroid is closest (where closest is defined using Euclidean distance).
+
+![](./image/chp10-2.png){width=50%}   
+
+### Hierarchical Clustering:
+
+* Bottom-up or agglomerative
+![](./image/chp10-3.png){width=50%}
+* The approach in words:
+  - Start with each point in its own cluster.
+  - Identify the closest two clusters and merge them.
+  - Repeat.
+  - Ends when all points are in a single cluster
+  
+### Linkage
+![](./image/chp10-13.png){width=50%}
+
+
+
+## PCA -  Principal Components Analysis
+
+* PCA produces a **low-dimensional representation** of a dataset. It finds a sequence of **linear combinations** of the variables that have maximal variance, and are mutually uncorrelated. Apart from producing derived variables for use in supervised learning problems, PCA also serves as **a tool for data visualization**.
+
+* PC1 
+  - find direction of max variances   
+![](./image/chp10-4.png){width=50%}    
+  - is the normalized linear combination of the features ($X_1,X_2...X_p$) : $Z_1=\phi_{11}X_1+\phi_{21}X_2+...+\phi_{p1}X_p$
+  - by normalized means $\Sigma^p_{j=1}\phi^2_{ji}=1$
+  - vector = $\phi_1 = (\phi_{11}  \phi_{21}...\phi_{p1})^T$
+* computation of principal components
+  - $X$ dim (n*p)
+    + since we are only interested in variance, we assume that each of the variables in X has been centered to have mean zero (means, the cols means of $X$ = 0 )
+  - compute the linear combination of the sample feature values of the form $z_{i1}=\phi_{11}X_{i1}+\phi_{21}X_{i2}+...+\phi_{p1}X_{ip}$ for i = 1... n  that has the largest sample variance 
+  - the sample variance of the $z_{i1}$ can be written as $\frac1n \Sigma^n_{i=1}z_{i1}^2$
+  - then $$\max_{\phi_{11}...\phi_{p1}}\frac1n \Sigma^n_{i=1}(\Sigma^p_{j=1} \phi_{j1}x_{ij})^2 \text{ subject to } \Sigma^p_{j=1}\phi^2_{ji}=1$$
+
+* why scale matter
+  - Performing PCA on un-normalized variables will lead to insanely large loadings for variables with high variance. 
+  - If the variables are in different units, scaling each to have standard deviation equal to one is recommended.
+  - If they are in the same units, you might or might not scale the variables.
+
+### interpretation 
+  - **Eignvalue**
+    + Eigenvalues (also called characteristic values or latent roots) are the variances of the principal components.
+    + size of eigenvalues to determine the number of principal components. Retain the principal components with the largest eigenvalues.   
+![](./image/chp10-5.png){width=40%} 
+    +  **scree plot**:
+      * help you determine the number of components based on the size of the eigenvalues.
+      * Kaiser criterion, you use only the principal components with eigenvalues that are greater than 1.  
+      * 下图 the first three principal components have eigenvalues greater than 1, these three components explain 84.1% of the variation in the data.If 84.1% is an adequate amount of variation explained in the data, then you should use the first three principal components.
+![](./image/chp10-6.png){width=50%}      
+    + **Proportion** 
+      * Proportion is the proportion of the variability in the data that each principal component explains.use the proportion to determine which principal components explain most of the variability in the data. 
+      * The higher the proportion, the more variability that the principal component explains. The size of the proportion can help you decide whether the principal component is important enough to retain.
+      * eg:  a principal component with a proportion of 0.621 explains 62.1% of the variability in the data.
+      * code: 
+        - (VE <- pca_result$sdev^2)
+        - PVE <- VE / sum(VE) (proportion of variance explained)
+      * total variance$\Sigma^p_{j=1}Var(X_j)=\Sigma^p_{j=1}\frac1n\Sigma^n_{i=1}x^2_{ij} $
+      * variance explained by the mth principal
+component is $Var(Z_m)=\frac1n\Sigma^n_{i=1}z^2_{im}$ M = min(n-1,p)
+      * PVE between 0 and 1 = $\frac{\Sigma^n_{i=1}z^2_{im}}{\Sigma^p_{j=1}\Sigma^n_{i=1}x^2{ij}}$    
+![](./image/chp10-9.png){width=50%}         
+    + **Cumulative**
+      * Cumulative is the cumulative proportion of the sample variability explained by consecutive principal components.Use the cumulative proportion to assess the total amount of variance that the consecutive principal components explain.
+      * The cumulative proportion can help you determine the number of principal components to use. Retain the principal components that explain an acceptable level of variance. 
+      * eg:For example, you may only need 80% of the variance explained by the principal components if you are only using them for descriptive purposes. 
+    + **Principal components (PC)**
+      * are the linear combinations of the original variables that account for the variance in the data. The maximum number of components extracted always equals the number of variables.
+      * The larger the absolute value of the coefficient, the more important the corresponding variable is in calculating the component.
+    + **Scores**
+      * Scores are linear combinations of the data that are determined by the coefficients for each principal component.
+    + **Score plot** 
+        * If the first two components account for most of the variance in the data, you can use the score plot to assess the data structure and detect clusters, outliers, and trends. Groupings of data on the plot may indicate two or more separate distributions in the data. If the data follow a normal distribution and no outliers are present, the points are randomly distributed around zero.   
+![](./image/chp10-10.png){width=50%}      
+    + **Distance**
+      * Scores are linear combinations of the data that are determined by the coefficients for each principal component. 
+    + **Loading plot**
+      * Use the loading plot to identify which variables have the largest effect on each component.   
+![](./image/chp10-11.png){width=50%}  
+    + **Biplot**      
+![](./image/chp10-7.png){width=50%}  
+![](./image/chp10-8.png){width=50%}      
+      * PC1 roughly corresponds to an overall rate of serious crimes since Murder, Assault, and Rape have the largest values.
+      * PC2 is affected by UrbanPop more than the other three variables, so it roughly
+      corresponds to the level of urbanization of the state, with some opposite, smaller influence by murder rate.
+
+PCA vs Clustering
+
+* PCA looks for a low-dimensional representation of the observations that explains a good fraction of the variance.
+* Clustering looks for homogeneous subgroups among the observations.
+
+
+
+
+
