@@ -1,0 +1,806 @@
+---
+title: "Mini-Project"
+author: "xl"
+output: html_document
+---
+```{r message=FALSE, warning=FALSE}
+library(maps)
+library(dplyr)
+library(tidyr)
+library(sp)
+library(maps)
+library(maptools)
+library(viridis)
+library(usmap)
+library(ggplot2)
+library(ggthemes)
+library(colorspace)
+library(ggpubr)
+# library(shiny)
+# library(scales)
+# library(lubridate)
+
+```
+
+
+```{r}
+
+par(mfrow=c(1,2) )
+
+slices <- c(2.09, 2.09, 1.80, 1.28, 1.04,1.03,11.20)
+lbls <- c("Lung", "Breast", "Colorectal", "Prostate", "Skin","Stomach","other")
+pct <- round(slices/sum(slices)*100)
+lbls <- paste(lbls, pct) # add percents to labels
+lbls <- paste(lbls,"%",sep="") # ad % to labels
+pie(slices,labels = lbls, col=terrain.colors(8)[1:7],
+   main="Global Cancer Case")
+
+slices <- c(1.76*10^6, 862000, 783000, 782000, 627000,9.6*10^6-sum(c(1.76*10^6, 862000, 783000, 782000, 627000)))
+lbls <- c("Lung", "Colorectal", "Stomach", "Liver", "Breast","other")
+pct <- round(slices/sum(slices)*100)
+lbls <- paste(lbls, pct) # add percents to labels
+lbls <- paste(lbls,"%",sep="") # ad % to labels
+pie(slices,labels = lbls, col=terrain.colors(8)[1:6],
+   main="Global Cancer Death")
+
+
+
+
+# Data:
+# Lung (1.76 million deaths)
+# Colorectal (862 000 deaths)
+# Stomach (783 000 deaths)
+# Liver (782 000 deaths)
+# Breast (627 000 deaths)
+
+# Lung (2.09 million cases)
+# Breast (2.09 million cases)
+# Colorectal (1.80 million cases)
+# Prostate (1.28 million cases)
+# Skin cancer (non-melanoma) (1.04 million cases)
+# Stomach (1.03 million cases)
+
+```
+
+```{r }
+df_plants=read.csv("US_Dataset_PowerPlants_Locations_Nature_County.csv")
+plants=df_plants[c("name","capacity_mw","latitude","longitude","country","primary_fuel","commissioning_year","generation_gwh_2013","generation_gwh_2014","generation_gwh_2015","generation_gwh_2016")]
+
+#plants
+
+# The single argument to this function, pointsDF, is a data.frame in which:
+#   - column 1 contains the longitude in degrees (negative in the US)
+#   - column 2 contains the latitude in degrees
+
+latlong2state <- function(pointsDF) {
+    # Prepare SpatialPolygons object with one SpatialPolygon
+    # per state (plus DC, minus HI & AK)
+    states <- map('state', fill=TRUE, col="transparent", plot=FALSE)
+    IDs <- sapply(strsplit(states$names, ":"), function(x) x[1])
+    states_sp <- map2SpatialPolygons(states, IDs=IDs,
+                     proj4string=CRS("+proj=longlat +datum=WGS84"))
+
+    # Convert pointsDF to a SpatialPoints object 
+    pointsSP <- SpatialPoints(pointsDF, 
+                    proj4string=CRS("+proj=longlat +datum=WGS84"))
+
+    # Use 'over' to get _indices_ of the Polygons object containing each point 
+    indices <- over(pointsSP, states_sp)
+
+    # Return the state names of the Polygons object containing each point
+    stateNames <- sapply(states_sp@polygons, function(x) x@ID)
+    stateNames[indices]
+}
+
+testPoints <- data.frame(longitude = plants$longitude, latitude =plants$latitude)
+testPoints["state"]=latlong2state(testPoints)
+state.name=tolower(state.name)
+names(state.abb ) <- state.name
+testPoints$ab <- state.abb[testPoints$state]
+
+plant = merge(plants,testPoints,by=c("longitude","latitude"))
+
+plant = plant[!is.na(plant$ab),]
+#plant
+
+
+latlong2state <- function(pointsDF) {
+    # Prepare SpatialPolygons object with one SpatialPolygon
+    # per state (plus DC, minus HI & AK)
+    states <- map('county', fill=TRUE, col="transparent", plot=FALSE)
+    IDs <- sapply(strsplit(states$names, ":"), function(x) x[1])
+    states_sp <- map2SpatialPolygons(states, IDs=IDs,
+                     proj4string=CRS("+proj=longlat +datum=WGS84"))
+
+    # Convert pointsDF to a SpatialPoints object 
+    pointsSP <- SpatialPoints(pointsDF, 
+                    proj4string=CRS("+proj=longlat +datum=WGS84"))
+
+    # Use 'over' to get _indices_ of the Polygons object containing each point 
+    indices <- over(pointsSP, states_sp)
+
+    # Return the state names of the Polygons object containing each point
+    stateNames <- sapply(states_sp@polygons, function(x) x@ID)
+    stateNames[indices]
+}
+
+testPoints <- data.frame(longitude = plants$longitude, latitude =plants$latitude)
+testPoints["county"]=latlong2state(testPoints)
+names(testPoints)[3] = "polyname"
+testPoints = left_join(testPoints,county.fips,by = "polyname")
+plant = merge(plant,testPoints,by=c("longitude","latitude"))
+plant$fips =  sprintf("%05d",plant$fips )
+```
+
+```{r }
+cancer = read.csv("cancer.csv")
+#cancer
+cancer = cancer[c(2:2932),]
+cancer$FIPS =  as.numeric(as.character(cancer$FIPS))
+cancer$FIPS =  sprintf("%05d",cancer$FIPS)
+```
+
+
+```{r }
+npl = read.csv("NPL.csv")
+#npl
+npl$State=tolower(npl$State)
+names(state.abb ) <- state.name
+npl$ab <- state.abb[npl$State]
+
+npl  = separate(npl, col =Deletion.Date , into = c("del_d","del_m","del_year"), sep = "/")  
+
+# filter out the  sites deleted after 2016
+npl$del_year = as.numeric(npl$del_year)
+npl = npl %>% 
+  select(Site.Name, Site.Score, County, ab,Status, del_year,Latitude,Longitude) %>%
+  filter(is.na(del_year)|del_year!=c(2017,2018,2019))
+# filter out the   deleted  sites
+npl = npl[npl$Status =="NPL Site", ]
+
+latlong2state <- function(pointsDF) {
+    # Prepare SpatialPolygons object with one SpatialPolygon
+    # per state (plus DC, minus HI & AK)
+    states <- map('county', fill=TRUE, col="transparent", plot=FALSE)
+    IDs <- sapply(strsplit(states$names, ":"), function(x) x[1])
+    states_sp <- map2SpatialPolygons(states, IDs=IDs,
+                     proj4string=CRS("+proj=longlat +datum=WGS84"))
+
+    # Convert pointsDF to a SpatialPoints object 
+    pointsSP <- SpatialPoints(pointsDF, 
+                    proj4string=CRS("+proj=longlat +datum=WGS84"))
+
+    # Use 'over' to get _indices_ of the Polygons object containing each point 
+    indices <- over(pointsSP, states_sp)
+
+    # Return the state names of the Polygons object containing each point
+    stateNames <- sapply(states_sp@polygons, function(x) x@ID)
+    stateNames[indices]
+}
+
+testPoints <- data.frame(longitude = npl$Longitude, latitude =npl$Latitude)
+testPoints["county"]=latlong2state(testPoints)
+names(testPoints)[3] = "polyname"
+testPoints = left_join(testPoints,county.fips,by = "polyname")
+colnames(testPoints)[c(1,2)] = c("Longitude","Latitude")
+npl = merge(npl,testPoints,by=c("Longitude","Latitude"))
+npl$fips =  sprintf("%05d",npl$FIPS)
+
+
+
+```
+
+
+
+
+```{r}
+# set ip map data
+state_df <- map_data("state")
+state_df$ab <- state.abb[state_df$region]
+state_df[is.na(state_df$ab),]["ab"] = "DC"
+
+county_df <- map_data("county")
+county_df$state <- state.abb[match(county_df$region, tolower(state.name))]
+county_df  <- county_df %>%
+  mutate(polyname = paste(region,subregion,sep=",")) %>%
+  left_join(county.fips, by="polyname")
+county_df$fips =  sprintf("%05d",county_df$fips)
+```
+
+```{r}
+cancer_case=cancer[,c(2,3)]
+colnames(cancer_case) = c("fips","case")
+cancer_case$case =  as.numeric(as.character(cancer_case$case))
+cancer1 = full_join(cancer_case,county_df,by="fips")
+
+map = ggplot(cancer1, aes(long, lat)) +
+  geom_polygon(data = cancer1[cancer1$fips == 12125,] ,aes(fill = case, group = group),fill = "#33FF33", colour = alpha("white", 1 / 2), size = 0.2) +
+  geom_polygon(data = cancer1[!cancer1$fips == 12125,] , aes(fill = case, group = group), colour = alpha("white", 1 / 2), size = 0.2) +
+  geom_polygon(data = state_df, colour = "white", fill = NA,aes(group = group)) 
+
+vis_case = map +  scale_fill_viridis(option="magma",alpha = 1, direction = -1, na.value = "lightgrey",name= "Cancer Case") +  
+   coord_equal() +  theme_map()  +theme(legend.position = "bottom") +
+  labs(x = NULL, 
+       y = NULL, 
+       title = "Age Adjusted Cancer Case per 100,000 per County"
+       #, 
+        # subtitle = "Average age in Swiss municipalities, 2015", 
+        # caption = "Geometries: ThemaKart, BFS; Data: BFS, 2016"
+         )
+
+vis_case
+
+```
+```{r}
+cancer_case2=cancer[,c("FIPS","Average.Annual.Count")]
+colnames(cancer_case2) = c("fips","avg")
+cancer_case2$avg =  as.numeric(as.character(cancer_case2$avg))
+cancer2 = full_join(cancer_case2,county_df,by="fips")
+cancer2$avg2 <- cut(cancer2$avg , breaks=c(0,50,100,200,400,1000,5000,99999), labels=c("0-50","50-100","100-200","200-400","400-1000","1000-5000",">5000"))
+
+map2 = ggplot(cancer2, aes(long, lat)) +
+  geom_polygon(data =cancer2  ,aes(fill = avg2, group = group), colour = alpha("white", 1 / 2), size = 0.2) +
+  geom_polygon(data = state_df, colour = "white", fill = NA ,aes( group = group)) 
+
+vis_count = map2 + scale_fill_viridis(option="magma",discrete = TRUE,alpha = 1, direction = -1, na.value = "lightgrey",name= "Average Annual Case") +
+ coord_equal() +  theme_map()  +theme(legend.position = "bottom") +
+  labs(x = NULL, 
+       y = NULL, 
+       title = "Average Annual Case per County"
+       #, 
+        # subtitle = "Average age in Swiss municipalities, 2015", 
+        # caption = "Geometries: ThemaKart, BFS; Data: BFS, 2016"
+         )
+vis_count
+
+```
+```{r}
+# vis trend 
+cancer_tred=cancer[,c("FIPS","Recent.Trend","Recent.5.Year.Tren.in.Incidence.Rates")]
+colnames(cancer_tred) = c("fips","trend","rate")
+cancer_tred$rate = as.numeric(cancer_tred$rate)
+cancer_tred[cancer_tred$trend=="*",]["trend"] = "stable"
+
+cancer_tred = full_join(cancer_tred,county_df,by="fips")
+
+
+vis_rate = ggplot(cancer_tred, aes(long, lat, group = group)) +
+  geom_polygon(aes(fill = rate),colour = alpha("white", 1 / 2), size = 0.2) +
+  geom_polygon(data = state_df, colour = "white", fill = NA,aes(group = group))  +    scale_fill_viridis(option="magma",alpha = 1, direction = -1, na.value = "lightgrey",name= "Rate") + 
+   coord_equal() +  theme_map()  +theme(legend.position = "bottom") +
+  labs(x = NULL, 
+       y = NULL, 
+       title = "Cancer Case Incidence Rates per County" )
+
+vis_rate 
+
+vis_trend = ggplot(cancer_tred, aes(long, lat, group = group)) +
+  geom_polygon(aes(fill = trend),colour = alpha("white", 1 / 2), size = 0.2) +
+  geom_polygon(data = state_df, colour = "white", fill = NA,aes(group = group))  +  
+  scale_fill_manual(values = c("#416EB6","#EB8F90","#FEE19F"), na.value = "lightgrey") +
+   coord_equal() +  theme_map()  +theme(legend.position = "bottom") +
+  labs(x = NULL, 
+       y = NULL, 
+       title = "Cancer Case Trend per County" )
+vis_trend
+
+
+ggarrange( vis_case,vis_count,vis_rate,vis_trend, ncol = 2, nrow = 2)
+```
+
+```{r}
+
+npl_score = npl[,c("Site.Score","Latitude","Longitude")]
+npl_score$Site.Score =  as.numeric(as.character(npl_score$Site.Score))
+npl_score = npl_score[npl_score$Longitude>min(state_df$long)&npl_score$Longitude<max(state_df$long),]
+npl_score = npl_score[npl_score$Latitude>min(state_df$lat)&npl_score$Latitude<max(state_df$lat),]
+
+
+
+vis_npl_case = map +  scale_fill_viridis(option="magma",alpha = 0.2, direction = -1, na.value = "lightgrey",name= "Cancer Case") +
+  geom_point(data=npl_score, aes(y = Latitude, x = Longitude,colour=Site.Score), size=0.3,shape=19,alpha = 1)+
+  scale_color_continuous_sequential(palette="Emrld")+
+  coord_equal() +  theme_map()  +theme(legend.position = "bottom") +
+  labs(x = NULL, 
+       y = NULL, 
+       subtitle = "With Age Adjusted Cancer Case per 100,000 per County",
+       title = "Hazardous Waste Sites "
+       #, 
+        # caption = "Geometries: ThemaKart, BFS; Data: BFS, 2016"
+         )
+
+
+
+vis_npl_count = map2 + scale_fill_viridis(option="magma",discrete = TRUE,alpha = 0.2, direction = -1, na.value = "lightgrey",name= "Average Annual Case") +
+  geom_point(data=npl_score, aes(y = Latitude, x = Longitude,colour=Site.Score), size=0.3,shape=19,alpha = 1) +
+  scale_color_continuous_sequential(palette="Emrld")+
+  coord_equal() +  theme_map()  +theme(legend.position = "bottom") +
+  labs(x = NULL, 
+       y = NULL, 
+       subtitle = "With Average Annual Case per County",
+       title = "Hazardous Waste Sites "
+       #, 
+        # caption = "Geometries: ThemaKart, BFS; Data: BFS, 2016"
+         )
+vis_npl_case
+vis_npl_count
+
+```
+
+```{r}
+plant_cap=df_plants[c("latitude","longitude","capacity_mw","primary_fuel")]
+plant_cap = plant_cap[plant_cap$longitude>min(state_df$long) & plant_cap$longitude<max(state_df$long),]
+plant_cap = plant_cap[plant_cap$latitude>min(state_df$lat) & plant_cap$latitude<max(state_df$lat),]
+
+getPalette <- grDevices::colorRampPalette(RColorBrewer::brewer.pal(10, "Paired"))
+
+color.groups <- c(Solar =getPalette(14)[1],Gas  = getPalette(14)[2], Oil  = getPalette(14)[3], Hydro = getPalette(14)[4], Wind  = getPalette(14)[5], Coal = getPalette(14)[6], Biomass= getPalette(14)[7], Waste = getPalette(14)[8],Cogeneration = getPalette(14)[9],  Storage  = getPalette(14)[10],  Geothermal= getPalette(14)[11], Nuclear  = getPalette(14)[12], Petcoke = getPalette(14)[13],  Other  = getPalette(14)[14] )
+
+vis_plant_case = map + scale_fill_viridis(option="magma",alpha = 0.2, direction = -1, na.value = "lightgrey",name= "Cancer Case") + 
+  geom_point(data=plant_cap, aes(y = latitude, x = longitude,color=primary_fuel),size=0.5,alpha = 1,shape=17)+
+  coord_equal() +  theme_map()  +theme(legend.position = "bottom") +
+  scale_color_manual( values = color.groups,name="Primary Fuel Type",guide =guide_legend(override.aes = list(size = 3,shape=17)))+
+  labs(x = NULL, 
+       y = NULL, 
+      subtitle = "With Age Adjusted Cancer Case per 100,000 per County",
+       title = "Primary Fuel type of Power Plants"
+       )
+
+
+
+vis_plant_count = map2 + scale_fill_viridis(option="magma",discrete = TRUE,alpha = 0.2, direction = -1, na.value = "lightgrey",name= "Average Annual Case") +
+  geom_point(data=plant_cap, aes(y = latitude, x = longitude,color=primary_fuel),size=0.5,alpha = 1,shape=17,show.legend=FALSE)+
+  coord_equal() +  theme_map()  +theme(legend.position = "bottom") +
+  scale_color_manual( values = color.groups,name="Primary Fuel Type",guide =guide_legend(override.aes = list(size = 3,shape=17)))+
+  labs(x = NULL, 
+     y = NULL, 
+    subtitle = "With Average Annual Case per County",
+     title =  "Primary Fuel type of Power Plants"
+       )
+
+vis_plant_case
+vis_plant_count
+
+```
+
+
+
+```{r}
+plant_cap_group = plant_cap
+plant_cap_group$group <- cut(plant_cap_group$capacity_mw, breaks=c(0,10,20,100,1000,99999), labels=c(1,2,3,4,5))
+
+
+vis_power_case = map +  scale_fill_viridis(option="magma",alpha = 0.2, direction = -1, na.value = "lightgrey",name= "Cancer Case") + 
+  geom_point(data=plant_cap_group, aes(y = latitude, x = longitude,color=group),size=0.3,alpha = 1,shape=25)+
+  coord_equal() +  theme_map()  +theme(legend.position = "bottom") +
+  scale_color_viridis(discrete=TRUE,direction = -1,name="Capacity Level",guide =guide_legend(override.aes = list(size = 3,shape=25)))+
+#  theme(legend.key.size = unit(1.5, "cm"), legend.key.width = unit(0.5,"cm") )+
+  labs(x = NULL, 
+       y = NULL, 
+       subtitle =  "With Age Adjusted Cancer Case per 100,000 per County",
+       title = "Capacity Level of Power Plants "
+       #, 
+        # caption = "Geometries: ThemaKart, BFS; Data: BFS, 2016"
+         )
+
+
+vis_power_count =map2 +  scale_fill_viridis(option="magma",alpha = 0.2,discrete=TRUE, direction = -1, na.value = "lightgrey",name= "Cancer Case") + 
+  geom_point(data=plant_cap_group, aes(y = latitude, x = longitude,color=group),size=0.3,alpha = 1,shape=25)+
+  coord_equal() +  theme_map()  +theme(legend.position = "bottom") +
+  scale_color_viridis(discrete=TRUE,direction = -1,name="Capacity Level",guide =guide_legend(override.aes = list(size = 3,shape=25)))+
+#  theme(legend.key.size = unit(1.5, "cm"), legend.key.width = unit(0.5,"cm") )+
+  labs(x = NULL, 
+       y = NULL, 
+       subtitle =  "With Average Annual Case per County",
+       title =  "Capacity Level of Power Plants "
+       #, 
+        # caption = "Geometries: ThemaKart, BFS; Data: BFS, 2016"
+         )
+vis_power_case
+vis_power_count
+
+```
+
+```{r fig.height=7, fig.width=7}
+# vis_npl_case
+# vis_npl_count
+# vis_plant_case
+# vis_plant_count
+# vis_power_case
+# vis_power_count
+
+ggarrange(vis_npl_case ,vis_npl_count,vis_plant_case,vis_plant_count,vis_power_case,vis_power_count, ncol = 2, nrow = 3)
+
+```
+
+
+
+```{r}
+cancer_case3 = cancer[,c("FIPS","Age.AdjustedCANCERcases_per100000","Average.Annual.Count")]
+colnames(cancer_case3) = c("fips","case","count")
+cancer_case3$count = as.integer(cancer_case3$count)
+cancer_case3$case = as.integer(cancer_case3$case)
+
+cancer_count = left_join(cancer_case3,county_df[,c("fips","state")][!duplicated(county_df[,c("fips","state")]), ],by = "fips") %>% 
+  select("state","case" , "count") %>% 
+    group_by(state) %>%
+    summarize(c_age = mean(case),c_count = mean(count)) %>%
+  `colnames<-`(c("ab", "c_age","c_count"))
+
+npl_count= npl %>% 
+    group_by(ab) %>%
+    summarize(n_mean = mean(Site.Score),n_count = n()) %>%
+  `colnames<-`(c("ab","n_mean", "n_count"))
+
+
+plant_count =  plant %>% 
+    group_by(ab) %>%
+    summarize(p_mean = mean(capacity_mw),p_count = n())  %>%
+  `colnames<-`(c("ab","p_mean", "p_count"))
+
+full = state_df %>% full_join(cancer_count,by="ab") %>% full_join(npl_count,by="ab")%>% full_join(plant_count,by="ab")
+  
+```
+
+```{r fig.height=5, fig.width=8}
+
+#magma
+vis1= ggplot(data=full, aes(long, lat, group = group,fill =c_age )) +
+  geom_polygon( colour = "white") +
+  scale_fill_viridis(option="D",alpha = 1, direction = -1, na.value = "lightgrey",name= "Cancer Case") +
+    coord_equal() +  theme_map()  +theme(legend.position = "bottom") +
+    labs(x = NULL, 
+       y = NULL, 
+       title = "Age Adjusted Cancer Case"
+       #subtitle = "With Power Plants "
+       #, 
+        # caption = "Geometries: ThemaKart, BFS; Data: BFS, 2016"
+         )
+
+vis2 = ggplot(data=full, aes(long, lat, group = group,fill =c_count )) +
+  geom_polygon( colour = "white") +
+  scale_fill_viridis(option="D",alpha = 1, direction = -1, na.value = "lightgrey",name= "Cancer Case") +
+    coord_equal() +  theme_map()  +theme(legend.position = "bottom") +
+    labs(x = NULL, 
+       y = NULL, 
+       title = "Average Cancer Cases"
+       #subtitle = "With Power Plants "
+       #, 
+        # caption = "Geometries: ThemaKart, BFS; Data: BFS, 2016"
+         )
+
+vis3 = ggplot(data=full, aes(long, lat, group = group,fill =n_count )) +
+  geom_polygon( colour = "white") +
+  scale_fill_viridis(option="D",alpha = 1, direction = -1, na.value = "lightgrey",name= "NPL Number") +
+    coord_equal() +  theme_map()  +theme(legend.position = "bottom") +
+    labs(x = NULL, 
+       y = NULL, 
+       title = "Number of NPL"
+       #subtitle = "With Power Plants "
+       #, 
+        # caption = "Geometries: ThemaKart, BFS; Data: BFS, 2016"
+         )
+
+vis4  = ggplot(data=full, aes(long, lat, group = group,fill =n_mean )) +
+  geom_polygon( colour = "white") +
+  scale_fill_viridis(option="D",alpha = 1, direction = -1, na.value = "lightgrey",name= "Score") +
+    coord_equal() +  theme_map()  +theme(legend.position = "bottom") +
+    labs(x = NULL, 
+       y = NULL, 
+       title = "Average NPL Score"
+       #subtitle = "With Power Plants "
+       #, 
+        # caption = "Geometries: ThemaKart, BFS; Data: BFS, 2016"
+         )
+
+
+vis5  = ggplot(data=full, aes(long, lat, group = group,fill =p_count )) +
+  geom_polygon( colour = "white") +
+  scale_fill_viridis(option="D",alpha = 1, direction = -1, na.value = "lightgrey",name= "Plants Number") +
+    coord_equal() +  theme_map()  +theme(legend.position = "bottom") +
+    labs(x = NULL, 
+       y = NULL, 
+       title = "Number of Power Plants"
+       #subtitle = "With Power Plants "
+       #, 
+        # caption = "Geometries: ThemaKart, BFS; Data: BFS, 2016"
+         )
+
+vis6  = ggplot(data=full, aes(long, lat, group = group,fill =p_mean )) +
+  geom_polygon( colour = "white") +
+  scale_fill_viridis(option="D",alpha = 1, direction = -1, na.value = "lightgrey",name= "Plants Capacity") +
+    coord_equal() +  theme_map()  +theme(legend.position = "bottom") +
+    labs(x = NULL, 
+       y = NULL, 
+       title = "Capacity of Power Plants"
+         )
+```
+```{r fig.height=8, fig.width=7}
+ggarrange(vis1, vis2,vis3,vis4,vis5,vis6, ncol = 2, nrow = 3)
+```
+
+```{r message=FALSE, warning=FALSE}
+cancer_state = transform(cancer,id=as.numeric(factor(Recent.Trend)))[,c("FIPS","Recent.5.Year.Tren.in.Incidence.Rates","id")]
+cancer_state =  cancer_state[cancer_state$id != 1,]
+cancer_state[cancer_state$id == 2,]["id"] = -1
+cancer_state[cancer_state$id == 4,]["id"] = 0
+cancer_state[cancer_state$id == 3,]["id"] = 1
+# falling = 2, stable = 4 , rising = 3
+colnames(cancer_state) = c("fips","rates","id")
+cancer_state$rates = as.numeric(cancer_state$rates )
+
+cancer_state = left_join(cancer_state,county_df[,c("fips","state")][!duplicated(county_df[,c("fips","state")]), ],by = "fips") %>% 
+  select("state","id" , "rates") %>% 
+    group_by(state) %>%
+    summarize(id = mean(id),rates = mean(rates)) %>%
+  `colnames<-`(c("ab", "trend","rates"))
+
+cancer_state$group = "stable"
+cancer_state[cancer_state$trend > 0.02,]["group"] = "rising"
+cancer_state[cancer_state$trend < -0.02,]["group"] = "falling"
+
+
+
+full_df = unique(full[,c(7:13)])
+full_df = full_df[!is.na(full_df$c_age),]
+full_df = left_join(full_df,cancer_state,by = "ab")
+full_df = full_df[c(1:46),]
+rownames(full_df) = full_df$ab
+colnames(full_df) = c("ab","Age-Adjusted_cases_rate","Number_of_cases","Avg_score_NPL","Number_NPL ","Avg_capacity","Trend","Incidence_rates")
+heatmap(as.matrix( full_df[,c(2:8)]))
+
+
+
+cormat <- round(cor(full_df[,c(2:8)],use = "pairwise.complete.obs"),2)
+melted_cormat <- data.table::melt(cormat)
+ggplot(data = melted_cormat, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile()+
+scale_fill_gradient2(low="navy", mid="white", high="maroon",
+   midpoint = 0, limit = c(-1,1), space = "Lab", 
+   name="Pearson\nCorrelation")
+
+
+
+
+
+
+
+
+# """
+# The dendrograms along the sides show how the variables and the rows are independently clustered. The heat map shows the data value for each row and column (possibly standardized so they all fit in the same range). Any patterns in the heat map may indicate an association between the rows and the columns. Or you might be able to modify the clustering to create patterns (ordering of leaves within the dendrogram is often arbitrary).
+# 
+# The main pattern to look for is a rectangular area of about the same color. That suggests a group of rows that is correlated for the corresponding group of columns. For instance, the upper fourth of columns 10-13 shows a lot of darker than average values.
+# """
+```
+
+```{r}
+cancer_case3
+
+cancer$FIPS =  as.numeric(as.character(cancer$FIPS))
+cancer$FIPS =  sprintf("%05d",cancer$FIPS)
+
+cor_type = unique(plant[,c("primary_fuel","fips")])
+cor_type$fips = sprintf("%05d",cor_type$fips)
+
+cor = left_join(cor_type,cancer_case3,by= "fips")
+cor = cor[! is.na(cor$case),]
+
+cor$primary_fuel = as.factor(cor$primary_fuel)
+
+fit <- lm(case ~ primary_fuel, data=cor)
+anova(fit)
+fit2 <- lm(count ~ primary_fuel, data=cor)
+anova(fit2)
+
+#If the p-value is less than 0.05, we reject the null hypothesis
+#If we consider the 0.05 significance level, we would not reject the null hpothesis that Y is independent of G. If we now rerun the ANOVA using the second dataset
+```
+
+```{r}
+capacity_mw
+
+cap = plant%>% 
+  select("capacity_mw","fips" ) %>% 
+    group_by(fips) %>%
+    summarize(cap = mean(capacity_mw),n = n()) 
+cap = cap[c(2:1928),]
+cor1 = left_join(cap,cancer_case3,by= "fips")
+
+
+
+
+cor.test(cor1$n, cor1$case, method="pearson")
+cor.test(cor1$n, cor1$count, method="pearson")
+
+
+
+# When testing the null hypothesis that there is no correlation between two variables, we reject the null hypothesis . 
+
+# As age increases so does Brozek percent body fat. The 95% confidence interval for the correlation between age and Brozek percent body fat is (0.17, 0.40). Note that this 95% confidence interval does not contain 0, which is consistent with our decision to reject the null hypothesis.
+
+score = npl%>% 
+  select("Site.Score","fips" ) %>% 
+    group_by(fips) %>%
+    summarize(score = mean(Site.Score),npl_n = n()) 
+cap = cap[c(2:1928),]
+cor1 = left_join(cap,cancer_case3,by= "fips")
+cor2= left_join(cor1,score,by= "fips")
+heatmap(as.matrix( cor2[,c(2:6)]))
+
+colnames(cor2) = c("fips","capacity","number_of_plants","Avg_score_NPL","cancer rate","cancer case","Number_NPL ","Avg_capacity")
+cormat <- round(cor(cor2[,c(2:6)],use = "pairwise.complete.obs"),2)
+melted_cormat <- data.table::melt(cormat)
+ggplot(data = melted_cormat, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile()+
+scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+   midpoint = 0, limit = c(-1,1), space = "Lab", 
+   name="Pearson\nCorrelation")
+
+
+
+
+
+
+cor.test(cor1$cap, cor1$case, method="pearson")
+cor.test(cor1$cap, cor1$count, method="pearson")
+
+cor.test(cor2$score ,cor2$case ,method="pearson")
+cor.test(cor2$score,cor2$count ,method="pearson")
+
+
+
+cor.test(cor1$n, cor1$case, method="pearson")
+cor.test(cor1$n, cor1$count, method="pearson")
+cor.test(cor2$npl_n,cor2$case ,method="pearson")
+cor.test(cor2$npl_n,cor2$count ,method="pearson")
+
+```
+
+
+```{r eval=FALSE, include=FALSE}
+
+# 
+# 
+# # ui <- fluidPage(
+# #   
+# #   sidebarLayout(
+# #     sidebarPanel(
+# #       checkboxGroupInput('primary_fuel', 'plant type', 
+# #                          choices=c( "Solar", "Gas","Oil" , "Hydro" ,"Wind","Coal" ,"Biomass" , "Waste" ,"Cogeneration", "Storage" ,  "Geothermal" ,  "Nuclear" ,"Petcoke" ,  "Other" ),
+# #                          selected = c( "Solar", "Gas","Oil" , "Hydro" ,"Wind","Coal" ,"Biomass" , "Waste" ,"Cogeneration", "Storage" ,  "Geothermal" ,  "Nuclear" ,"Petcoke" ,  "Other" )
+# #       )
+# #     ),
+# #     
+# #     
+# #     
+# #     mainPanel(
+# #       plotOutput('portfolio')
+# #     )
+# #   )
+# # )
+# 
+# type = c( "Solar", "Gas","Oil" , "Hydro" ,"Wind","Coal" ,"Biomass" , "Waste" ,"Cogeneration", "Storage" ,  "Geothermal" ,  "Nuclear" ,"Petcoke" ,  "Other" )
+# ui <- fluidPage(
+# 
+# 
+# 
+#    sidebarLayout(
+#       sidebarPanel(
+#          selectInput(inputId = "x", label = "longitude", choices = "longitude", selected = "longitude"),
+#          selectInput(inputId = "y", label = "latitude", choices = "latitude", selected = "latitude"),
+#          selectInput(inputId = "z", label = "primary_fuel", choices = "type", selected = type, multiple = TRUE)
+#       ),
+# 
+#       mainPanel(
+#          plotOutput("portfolio")
+#       )
+#    )
+# )
+# 
+# 
+# server <- function(input, output){
+# 
+#   #Function to subset df based on user selected states 
+# 
+# 
+# #  color.groups <- c(CA = 'green', TX = 'blue', NY = 'red', Total = 'black')
+#  # line.types <- c(pred = 1, act = 4, fct = 5)
+# 
+#   #Generate all the 'geom_line' statements to create ggplot
+# 
+#   color.groups <- c(Solar =getPalette(16)[1],Gas  = getPalette(16)[2], Gas  = getPalette(16)[3], Hydro = getPalette(16)[4], Wind  = getPalette(16)[5], Coal = getPalette(16)[6], Biomass= getPalette(16)[7], Waste = getPalette(16)[8],Cogeneration = getPalette(16)[9],  Storage  = getPalette(16)[10],  Geothermal= getPalette(16)[11], Nuclear  = getPalette(16)[12], Petcoke = getPalette(16)[13],  Other  = getPalette(16)[14] )
+# 
+#   #Create ggplot (not working)
+#   output$portfolio <- renderPlot({
+#     
+#     
+#    map= ggplot(cancer1, aes(long, lat)) +
+#       geom_polygon(aes(fill = case,group = group), colour = alpha("white", 1 / 2), size = 0.2) +
+#       geom_polygon(data = state_df,aes(group = group), colour = "white", fill = NA) +
+#       scale_fill_viridis(option="magma",alpha = 0.2, direction = -1, na.value = "lightgrey",name="Cancer Case") 
+#     map +
+#       geom_point(data= plant_cap , aes(x = plant_cap[, input$x], y =  plant_cap[, input$y], colour =  plant_cap[, input$z]),size=0.1,alpha = 1,shape=25)+
+#       coord_equal() +  theme_map()  +theme(legend.position = "bottom") +
+#       scale_discrete_manual("colour", values=color.groups)+
+#       labs(x = NULL, 
+#          y = NULL, 
+#          title = "Age Adjusted Cancer Case per  per 100,000",
+#          subtitle = "With Power Plants "
+#          #, 
+#           # caption = "Geometries: ThemaKart, BFS; Data: BFS, 2016"
+#            )
+#   })
+# 
+# 
+# 
+# }
+# 
+# shinyApp(ui, server)
+
+```
+
+
+
+
+
+```{r eval=FALSE, include=FALSE}
+# df <- data.frame(Date=seq.Date(as.Date('2017-01-01'), as.Date('2017-05-01'), by='month'),
+#                  CAact=rnorm(5, 10, 2), TXact=rnorm(5, 10, 2), NYact=rnorm(5, 10, 2),Totalact=rnorm(5, 30, 2), 
+#                  CAfct=rnorm(5, 10, 2), TXfct=rnorm(5, 10, 2), NYfct=rnorm(5, 10, 2), Totalfct=rnorm(5, 30, 2),
+#                  CApred=rnorm(5, 10, 2), TXpred=rnorm(5, 10, 2), NYpred=rnorm(5, 10, 2), Totalpred=rnorm(5, 30, 2)
+# )
+# 
+# 
+# df <- gather(df, Variable, Value, -Date)
+# df$State <- gsub('act|fct|pred', '', df$Variable)
+# df$Variable <- gsub('CA|NY|TX|Total', '', df$Variable)
+# df$State <- factor(df$State, levels = c('CA','NY','TX','Total'))
+# 
+# 
+# ui <- fluidPage(
+#   sidebarLayout(
+#     sidebarPanel(
+#       checkboxGroupInput('states', 'Select Regions', 
+#                          choices=c('CA','TX','NY','Total'),
+#                          selected=c('CA','TX','NY','Total')
+#       )
+#     ),
+#     mainPanel(
+#       plotOutput('portfolio')
+#     )
+#   )
+# )
+# 
+# server <- function(input, output){
+# 
+#   #Function to subset df based on user selected states 
+# 
+# 
+#   color.groups <- c(CA = 'green', TX = 'blue', NY = 'red', Total = 'black')
+#   line.types <- c(pred = 1, act = 4, fct = 5)
+# 
+#   #Generate all the 'geom_line' statements to create ggplot
+# 
+# 
+#   #Create ggplot (not working)
+#   output$portfolio <- renderPlot({
+#     sub <- subset(df, subset = State %in% input$states)
+#     ggplot(sub, aes(x = Date, y = Value, col = State))+
+#       geom_line(aes(linetype = Variable))+
+#       scale_color_manual(values = color.groups)+
+#       scale_linetype_manual(values = line.types)
+#   })
+# 
+# 
+# 
+# }
+# 
+# shinyApp(ui, server)
+```
+
+```{r}
+
+
+
+```
+
