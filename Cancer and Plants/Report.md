@@ -35,13 +35,13 @@ Apparently, the cancer rate varies greatly in different regions. Overall, the cl
 
 ![](images/plant_info.png)
 
-The visualization above shows the plants distribution in US, comparing the distribution plants with cancer status.  (If you are in need of the larger images, please click  on the names of the images. )
-The **right column** plots show the comparison between sites and age-adjusted cancer rate
-The **left column** plots show the comparison between sites and the number of people who get cancer. 
-The **first-row** plots: [`Hazardous Waste Sites by cancer rates`](images/Case_age.png) and 
-[`Hazardous Waste Sites by cancer counts`](images/avg_case.png) show the comparison between cancer and Hazardous Waste Sites listed on the National Priorities List The site scores calculated by the Hazard Ranking System and measure the environment pollutant risk. The higher score, higher risks. 
-The **second-row** plots: [`Primary Fuel type of Power Plants by cancer rates`](images/Fuel_Type_rate.png) and [`Primary Fuel type of Power Plants by cancer counts`](images/Fuel_Type_count.png) show the comparison between cancer and power plants in US, the sites are coloured by primary fuel of sites. 
-The **third-row** plots: [`Capacity Level of Power Plants by cancer rates`](images/cap_rate.png) and [`Capacity Level of Power Plants by cancer counts`](images/cap_count.png) show the comparison between cancer and power plants in US, the sites are coloured by the capacity level of sites
+The visualization above shows the plants distribution in US, comparing the distribution plants with cancer status.  (If you are in need of the larger images, please click  on the names of the images. )  
+* The **right column** plots show the comparison between sites and age-adjusted cancer rate  
+* The **left column** plots show the comparison between sites and the number of people who get cancer.   
+* The **first-row** plots: [`Hazardous Waste Sites by cancer rates`](images/Case_age.png) and   
+[`Hazardous Waste Sites by cancer counts`](images/avg_case.png) show the comparison between cancer and Hazardous Waste Sites listed on the National Priorities List The site scores calculated by the Hazard Ranking System and measure the environment pollutant risk. The higher score, higher risks.   
+* The **second-row** plots: [`Primary Fuel type of Power Plants by cancer rates`](images/Fuel_Type_rate.png) and [`Primary Fuel type of Power Plants by cancer counts`](images/Fuel_Type_count.png) show the comparison between cancer and power plants in US, the sites are coloured by primary fuel of sites.   
+* The **third-row** plots: [`Capacity Level of Power Plants by cancer rates`](images/cap_rate.png) and [`Capacity Level of Power Plants by cancer counts`](images/cap_count.png) show the comparison between cancer and power plants in US, the sites are coloured by the capacity level of sites  
 
 
 Similar to the high cancer rate distribution, there are more **Hazardous Waste Sites** or **power plants** in the East region. The sites with higher site score(dark green points in the top left plot) are located in the counties that have worse cancer status.  This pattern is even clearer on the left plots: comparison between sites and number cancer cases. Two distributions almost have the same geographical pattern, indicating that the areas have Hazardous waste sites or power plants, people are more likely to get cancer. The denser the sites, the higher number of cancer cases. And the light regions (low number of cancer cases) barely has power plants or Hazardous waste sites.
