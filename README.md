@@ -20,4 +20,5 @@
 
 ## Mechine Learning Models
 
-* **KNN**: [`rmd`](https://github.com/Butterflyer043/My-projects/blob/master/Mechine%20Learning%20Models/Kmeans.Rmd)file;[`html`](https://github.com/Butterflyer043/My-projects/blob/master/Mechine%20Learning%20Models/Kmeans.html)file;
+* **K-Means**: [`rmd`](https://github.com/Butterflyer043/My-projects/blob/master/Mechine%20Learning%20Models/Kmeans.Rmd)file;[`html`](https://github.com/Butterflyer043/My-projects/blob/master/Mechine%20Learning%20Models/Kmeans.html)file;
+* **KNN**:
